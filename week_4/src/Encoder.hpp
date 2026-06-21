@@ -2,6 +2,12 @@
 
 #include <Arduino.h>
 
+/*
+    Set this to a non-zero value if you want to use the getSpeed() method. This method is
+    experimental and I'm not 100% sure if it works, so I'll leave it out for now.
+*/
+#define USE_SPEED_FUNCTIONALITY 0
+
 namespace mtrn3100 {
 
 enum class EncoderSide {
@@ -47,6 +53,7 @@ public:
             direction = -1;
         }
 
+        #if USE_SPEED_FUNCTIONALITY
         if (curr_pulses == max_pulses_until_next_measure) {
             unsigned long curr_time = millis();
             time_between_pulses = curr_time - prev_time;
@@ -55,6 +62,7 @@ public:
         } else {
             curr_pulses++;
         }
+        #endif
 
         interrupts();
     }
@@ -84,6 +92,7 @@ public:
     }
 
 
+    #if USE_SPEED_FUNCTIONALITY
     /*
     Returns the signed angular speed of the motor (in radians/sec).
     */
@@ -112,7 +121,7 @@ public:
 
         return (delta_radians / delta_time_sec) * static_cast<float>(dir);
     }
-
+    #endif
 
 private:
     /*
@@ -144,12 +153,14 @@ private:
     // Signed number of 'ticks' counted by the encoder. E.g. A CW tick and a CCW tick
     // will cancel out, making the count 0.
     volatile long encoder_count = 0;
+    #if USE_SPEED_FUNCTIONALITY
     // Number of pulses to complete before measuring time
     const uint8_t max_pulses_until_next_measure = 20;
     // Current number of pulses counter; 1 <= curr_pulses <= max_pulses_until_next_measure
     volatile uint8_t curr_pulses = 1;
     volatile unsigned long prev_time = 0;
     volatile unsigned long time_between_pulses = 0;
+    #endif
     const uint16_t counts_per_revolution = 1400;
 
     static Encoder* instance_left;
