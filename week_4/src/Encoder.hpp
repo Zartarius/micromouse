@@ -14,10 +14,10 @@ public:
     Constructor for the Encoder class
         - enc1: An interrupt pin on the Arduino board, connected to channel A of the motor encoder
         by convention. The ISR is called at every rising edge on this pin.
-        - enc2: A digital (input) pin on the arduino board, connected to the other channel of the 
-        motor encoder (usually channel B). Used to derive the direction of rotation. 
+        - enc2: A digital (input) pin on the arduino board, connected to the other channel of the
+        motor encoder (usually channel B). Used to derive the direction of rotation.
         - side: The encoder which this instance is for. Two Encoder instances should be created (one left and one right)
-        if you want the left and right wheels to be controlled separately. 
+        if you want the left and right wheels to be controlled separately.
     */
     Encoder(uint8_t enc1, uint8_t enc2, EncoderSide side) : encoder1_pin{enc1}, encoder2_pin{enc2} {
         pinMode(encoder1_pin, INPUT_PULLUP);
@@ -29,7 +29,7 @@ public:
         } else if (side == EncoderSide::RIGHT) {
             instance_right = this;
             attachInterrupt(digitalPinToInterrupt(encoder1_pin), readEncoderRightISR, RISING);
-        } 
+        }
     }
 
 
@@ -62,7 +62,7 @@ public:
 
     /*
     Sets the encoder_count of the Encoder instance to 0. Useful when you want to reset
-    the encoder for different stages of movement. 
+    the encoder for different stages of movement.
     */
     void setEncoderToZero() {
         // We need to turn off interrupts when modifying volatile variables
@@ -72,7 +72,7 @@ public:
         interrupts();
     }
 
-    
+
     /*
     Returns the signed angular displacement of the motor (in radians) since it was last set to 0.
     */
@@ -99,9 +99,9 @@ public:
             return 0.0f;
         }
 
-        // If no pulse has arrived for longer than 10 expected block durations, 
+        // If no pulse has arrived for longer than 10 expected block durations,
         // the motor has slowed below measurable speed or stopped entirely.
-        // 10 is an arbitrary number, should probably change it. 
+        // 10 is an arbitrary number, should probably change it.
         if (millis() - last_pulse_time > delta_time_msec * 10) {
             return 0.0f;
         }
@@ -119,7 +119,7 @@ private:
     The ISR for the left encoder.
     */
     static void readEncoderLeftISR() {
-        // Ensure the instance has actually been created 
+        // Ensure the instance has actually been created
         if (instance_left != nullptr) {
             instance_left->readEncoder();
         }
@@ -130,7 +130,7 @@ private:
     The ISR for the right encoder.
     */
     static void readEncoderRightISR() {
-        // Ensure the instance has actually been created 
+        // Ensure the instance has actually been created
         if (instance_right != nullptr) {
             instance_right->readEncoder();
         }
@@ -142,14 +142,14 @@ private:
     // The current direction of rotation, either 1 or -1
     volatile int8_t direction = 0;
     // Signed number of 'ticks' counted by the encoder. E.g. A CW tick and a CCW tick
-    // will cancel out, making the count 0. 
+    // will cancel out, making the count 0.
     volatile long encoder_count = 0;
     // Number of pulses to complete before measuring time
     const uint8_t max_pulses_until_next_measure = 20;
     // Current number of pulses counter; 1 <= curr_pulses <= max_pulses_until_next_measure
     volatile uint8_t curr_pulses = 1;
     volatile unsigned long prev_time = 0;
-    volatile unsigned long time_between_pulses = 0; 
+    volatile unsigned long time_between_pulses = 0;
     const uint16_t counts_per_revolution = 1400;
 
     static Encoder* instance_left;
@@ -159,4 +159,4 @@ private:
 Encoder* Encoder::instance_left = nullptr;
 Encoder* Encoder::instance_right = nullptr;
 
-}  
+}

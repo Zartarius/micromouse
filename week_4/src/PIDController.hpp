@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Arduino.h>
 #include <math.h>
 
 namespace mtrn3100 {
@@ -10,7 +11,7 @@ public:
 
     // Compute the output signal required from the current/actual value.
     float compute(float input) {
-      
+
         curr_time = micros();
         dt = static_cast<float>(curr_time - prev_time) / 1e6;
         prev_time = curr_time;
@@ -27,8 +28,8 @@ public:
         return output;
     }
 
-    // Function used to return the last calculated error. 
-    // The error is the difference between the desired position and current position. 
+    // Function used to return the last calculated error.
+    // The error is the difference between the desired position and current position.
     void tune(float p, float i, float d) {
         kp = p;
         ki = i;
@@ -59,7 +60,7 @@ private:
     float setpoint = 0;
     float zero_ref = 0;
 
-    
+
 };
 
 }  // namespace mtrn3100
