@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "Motor.hpp"
 #include "Encoder.hpp"
+#include "PIDController.hpp"
 
 /*
     We assume MOT1 in "Micromouse_Kit_Information.pdf" to refer to the left motor,
