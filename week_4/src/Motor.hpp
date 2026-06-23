@@ -15,13 +15,13 @@ public:
         - dir_pin: A digital pin on the Arduino board, which connects to the BIN1/BPHASE pin on the motor controller.
         Switching between LOW and HIGH output switches the direction of rotation.
     */
-    Motor(uint8_t pwm_pin, uint8_t in2) :  pwm_pin{pwm_pin}, dir_pin{in2} {
+    Motor(uint8_t pwm_pin, uint8_t dir_pin) :  pwm_pin{pwm_pin}, dir_pin{dir_pin} {
         pinMode(pwm_pin, OUTPUT);
-        pinMode(in2, OUTPUT);
+        pinMode(dir_pin, OUTPUT);
 
         // Set pins to a default value of 0
         analogWrite(pwm_pin, 0); // digitalWrite(pwm_pin, LOW) is also valid
-        digitalWrite(in2, LOW);
+        digitalWrite(dir_pin, LOW);
     }
 
 

@@ -23,14 +23,18 @@ enum class PIDMode {
 };
 
 
-// ─── Shared PID state ────────────────────────────────────────────────────────
-
+/*
+    State of PID control, includes current integral value, previous error and the max integral absolute value
+*/
 struct PIDState {
     float integral = 0.0f;
     float prev_error = 0.0f;
     float integral_limit = 100.0f;
 };
 
+/*
+    Computes a pid output given the state and parameters
+*/
 static float pid_compute(PIDState& state, float kp, float ki, float kd, float error, float dt) {
     state.integral += error * dt;
     state.integral = constrain(state.integral, -state.integral_limit, state.integral_limit);
@@ -45,25 +49,25 @@ static float pid_compute(PIDState& state, float kp, float ki, float kd, float er
 class PIDController {
 public:
     /*
-    ROTATION mode constructor — point turn using differential steering.
+    PIDController constructor — point turn using differential steering.
+        - mode: either POSITION or ROTATION
         - left_motor / left_encoder:   Left wheel.
         - right_motor / right_encoder: Right wheel.
-        - track_width: Distance (metres) between the two wheel contact patches.
         - kp, ki, kd: PID gains.
 
-    Target is the desired robot heading change in radians.
-      Positive = CCW (left turn), negative = CW (right turn).
+    In POSITION mode, target is the desired displacement of the robot in terms of
+    wheel turns in radians.
 
-    Call left_encoder.setEncoderToZero() and right_encoder.setEncoderToZero()
-    before setting a new rotation target so that getRotation() starts from 0.
+    In ROTATION mode, target is the desired robot heading change in radians.
+      Positive = CCW (left turn), negative = CW (right turn).
     */
-    PIDController(Motor& left_motor, Encoder& left_encoder,
+    PIDController(PIDMode mode, Motor& left_motor, Encoder& left_encoder,
                   Motor& right_motor, Encoder& right_encoder,
-                  float track_width, float wheel_radius, float kp, float ki, float kd)
-        : mode{PIDMode::ROTATION},
+                  float kp, float ki, float kd)
+        : mode{mode},
           left_motor{left_motor}, left_encoder{left_encoder},
           right_motor{right_motor}, right_encoder{right_encoder},
-          kp{kp}, ki{ki}, kd{kd}, track_width{track_width}, wheel_radius{wheel_radius} {}
+          kp{kp}, ki{ki}, kd{kd} {}
 
 
     /*
@@ -103,7 +107,7 @@ public:
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -255.0f, 255.0f);
 
-            left_motor.setPWM(static_cast<int16_t>(output));
+            left_motor.setPWM(static_cast<int16_t>(-output));
             right_motor.setPWM(static_cast<int16_t>(output));
 
         } else if (mode == PIDMode::ROTATION) {
@@ -126,7 +130,8 @@ public:
 
             // Left wheel drives backward, right wheel drives forward (CCW turn)
             // Signs flip automatically with the error sign for CW turns.
-            left_motor.setPWM(static_cast<int16_t>(-output));
+            // left_motor.setPWM(static_cast<int16_t>(-output));
+            left_motor.setPWM(static_cast<int16_t>(output));
             right_motor.setPWM(static_cast<int16_t>(output));
         }
     }
@@ -143,18 +148,6 @@ public:
         right_encoder.setEncoderToZero();
     }
 
-
-    void setGains(float kp, float ki, float kd) {
-        this->kp = kp;
-        this->ki = ki;
-        this->kd = kd;
-    }
-
-
-    void setIntegralLimit(float limit) {
-        state.integral_limit = limit;
-    }
-
 private:
     PIDMode mode;
 
@@ -164,79 +157,11 @@ private:
     Encoder& right_encoder;
 
     float kp, ki, kd;
-    float track_width; // Units in metres
-    float wheel_radius;  // Units in metres
+    float track_width = 0.076; // Units in metres
+    float wheel_radius = 0.016;  // Units in metres
     float target = 0.0f;
 
     PIDState state;
 };
 
 }
-
-
-/*
-#include <Arduino.h>
-#include <math.h>
-
-namespace mtrn3100 {
-
-class PIDController {
-public:
-    PIDController(float kp, float ki, float kd) : kp(kp), ki(ki), kd(kd) {}
-
-    // Compute the output signal required from the current/actual value.
-    float compute(float input) {
-
-        curr_time = micros();
-        dt = static_cast<float>(curr_time - prev_time) / 1e6;
-        prev_time = curr_time;
-
-        error = setpoint - (input - zero_ref);
-
-        // TODO: IMPLIMENT PID CONTROLLER
-        integral = 0;
-        derivative = 0;
-        output = 0;
-
-        prev_error = 0;
-
-        return output;
-    }
-
-    // Function used to return the last calculated error.
-    // The error is the difference between the desired position and current position.
-    void tune(float p, float i, float d) {
-        kp = p;
-        ki = i;
-        kd = d;
-    }
-
-    float getError() {
-      return error;
-    }
-
-    // This must be called before trying to achieve a setpoint.
-    // The first argument becomes the new zero reference point.
-    // Target is the setpoint value.
-    void zeroAndSetTarget(float zero, float target) {
-        prev_time = micros();
-        zero_ref = zero;
-        setpoint = target;
-    }
-
-public:
-    uint32_t prev_time, curr_time = micros();
-    float dt;
-
-private:
-    float kp, ki, kd;
-    float error, derivative, integral, output;
-    float prev_error = 0;
-    float setpoint = 0;
-    float zero_ref = 0;
-
-
-};
-
-}  // namespace mtrn3100
-*/
