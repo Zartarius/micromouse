@@ -54,7 +54,7 @@ void loop() {
     #elif TEST_NUM == 3
 
     // Should move 20 cm again, this time more accurately hopefully
-    position_controller.setTarget(2 * PI * 5);
+    position_controller.setTarget(2 * PI * 2);
     const float DT = 0.001f;
     while (true) {
         unsigned long prev = 0;
