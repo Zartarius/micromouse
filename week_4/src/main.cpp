@@ -22,18 +22,25 @@ mtrn3100::Encoder left_motor_encoder(LEFT_MOTOR_ENC_A_PIN, LEFT_MOTOR_ENC_B_PIN,
 mtrn3100::Encoder right_motor_encoder(RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN, mtrn3100::EncoderSide::RIGHT);
 mtrn3100::PIDController position_controller(mtrn3100::PIDMode::POSITION, left_motor,
                                             left_motor_encoder, right_motor, right_motor_encoder,
-                                            200.0, 0, 0);
+                                            20.0, 0, 0);
 mtrn3100::PIDController rotation_controller(mtrn3100::PIDMode::ROTATION, left_motor,
                                             left_motor_encoder, right_motor, right_motor_encoder,
-                                            200.0, 0, 0);
+                                            20.0, 0, 0);
 
 void setup() {
-
+    position_controller.reset();
+    position_controller.setTarget(12.5f);
 }
 
 #define TEST_NUM 3
 
 void loop() {
+    pid.update(0.01f);
+
+    Serial.println((left_encoder.getRotation()+ right_encoder.getRotation()) / 2.0f);
+
+    delay(10);
+
     #if TEST_NUM == 1
     // should just move forward, then backward
     left_motor.setPWM(-100);
@@ -58,8 +65,9 @@ void loop() {
     // Should move 20 cm again, this time more accurately hopefully
     position_controller.setTarget(2 * PI * 2);
     const float DT = 0.001f;
+    unsigned long prev = 0;
+
     while (true) {
-        unsigned long prev = 0;
         unsigned long now = micros();
         if (now - prev >= 1000) {
             prev = now;
