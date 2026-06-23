@@ -51,6 +51,8 @@ void loop() {
     left_motor.setPWM(0);
     right_motor.setPWM(0);
 
+    while (1) ;
+
     #elif TEST_NUM == 3
 
     // Should move 20 cm again, this time more accurately hopefully
