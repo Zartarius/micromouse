@@ -33,6 +33,8 @@ unsigned long prev = 0;
 void setup() {
     Serial.begin(9600);
     position_controller.reset();
+    position_controller.setTarget(2 * PI * 2);
+
 }
 
 #define TEST_NUM 3
@@ -65,7 +67,6 @@ void loop() {
     #elif TEST_NUM == 3
 
     // Should move 20 cm again, this time more accurately hopefully
-    position_controller.setTarget(2 * PI * 2);
     
     
 
