@@ -109,13 +109,13 @@ public:
 
 
             //debug
-            Serial.print("Error=");
-            Serial.print(error);
+            // Serial.print("Error=");
+            // Serial.print(error);
 
-            Serial.print(" Output=");
-            Serial.println(output);
+            // Serial.print(" Output=");
+            // Serial.println(output);
 
-            
+
             left_motor.setPWM(static_cast<int16_t>(-output));
             right_motor.setPWM(static_cast<int16_t>(output));
 
@@ -130,19 +130,19 @@ public:
             // (wheel_radius / track_width) as a single tuned scalar via kp.
             // Here we keep it explicit so units are clear.
             float right_rot = right_encoder.getRotation();
-            float left_rot = left_encoder.getRotation();
-            float heading = (right_rot - left_rot) * wheel_radius / track_width;
+            float left_rot = -left_encoder.getRotation();
+            float heading = (right_rot * wheel_radius - left_rot * wheel_radius) / track_width;
 
             float error  = target - heading;
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -255.0f, 255.0f);
 
             //debug
-            Serial.print("Error=");
-            Serial.print(error);
+            // Serial.print("Error=");
+            // Serial.print(error);
 
-            Serial.print(" Output=");
-            Serial.println(output);
+            // Serial.print(" Output=");
+            // Serial.println(output);
 
             // Left wheel drives backward, right wheel drives forward (CCW turn)
             // Signs flip automatically with the error sign for CW turns.
@@ -173,7 +173,7 @@ private:
     Encoder& right_encoder;
 
     float kp, ki, kd;
-    float track_width = 0.076; // Units in metres
+    float track_width = 0.085; // Units in metres
     float wheel_radius = 0.016;  // Units in metres
     float target = 0.0f;
 
