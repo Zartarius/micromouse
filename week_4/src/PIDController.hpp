@@ -103,7 +103,7 @@ public:
     */
     void update(float dt) {
         if (mode == PIDMode::POSITION) {
-            float error = target - ((left_encoder.getRotation() + right_encoder.getRotation()) / 2.0f);
+            float error = target - ((-left_encoder.getRotation() + right_encoder.getRotation()) / 2.0f);
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -255.0f, 255.0f);
 
@@ -116,7 +116,7 @@ public:
             Serial.println(output);
 
             
-            left_motor.setPWM(static_cast<int16_t>(output));
+            left_motor.setPWM(static_cast<int16_t>(-output));
             right_motor.setPWM(static_cast<int16_t>(output));
 
         } else if (mode == PIDMode::ROTATION) {
@@ -147,7 +147,7 @@ public:
             // Left wheel drives backward, right wheel drives forward (CCW turn)
             // Signs flip automatically with the error sign for CW turns.
             // left_motor.setPWM(static_cast<int16_t>(-output));
-            left_motor.setPWM(static_cast<int16_t>(-output));
+            left_motor.setPWM(static_cast<int16_t>(output));
             right_motor.setPWM(static_cast<int16_t>(output));
         }
     }
