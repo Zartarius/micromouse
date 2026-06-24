@@ -80,17 +80,17 @@ void loop() {
         position_controller.update(DT);
 
                 // Print encoder values for debugging
-        Serial.print("L=");
-        Serial.print(left_motor_encoder.getRotation());
+        // Serial.print("L=");
+        // Serial.print(left_motor_encoder.getRotation());
 
-        Serial.print(" R=");
-        Serial.print(right_motor_encoder.getRotation());
+        // Serial.print(" R=");
+        // Serial.print(right_motor_encoder.getRotation());
 
-        float pos = (left_motor_encoder.getRotation() +
-                    right_motor_encoder.getRotation()) / 2.0f;
+         float pos = (left_motor_encoder.getRotation() +
+                     right_motor_encoder.getRotation()) / 2.0f;
 
-        Serial.print(" Avg=");
-        Serial.println(pos);
+        // Serial.print(" Avg=");
+        // Serial.println(pos);
 
         // Stop when close enough to target
         if (abs(pos) > (2 * PI * 2)) {

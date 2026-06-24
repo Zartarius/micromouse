@@ -107,6 +107,15 @@ public:
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -255.0f, 255.0f);
 
+
+            //debug
+            Serial.print("Error=");
+            Serial.print(error);
+
+            Serial.print(" Output=");
+            Serial.println(output);
+
+            
             left_motor.setPWM(static_cast<int16_t>(output));
             right_motor.setPWM(static_cast<int16_t>(output));
 
@@ -127,6 +136,13 @@ public:
             float error  = target - heading;
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -255.0f, 255.0f);
+
+            //debug
+            Serial.print("Error=");
+            Serial.print(error);
+
+            Serial.print(" Output=");
+            Serial.println(output);
 
             // Left wheel drives backward, right wheel drives forward (CCW turn)
             // Signs flip automatically with the error sign for CW turns.
