@@ -40,7 +40,7 @@ void setup() {
 #define TEST_NUM 3
 
 void loop() {
-    position_controller.update(0.01f);
+    // position_controller.update(0.01f);
 
 
     delay(10);
@@ -71,40 +71,40 @@ void loop() {
     
 
     // while (true) {
-        unsigned long now = micros();
+    unsigned long now = micros();
 
         
 
-        if (now - prev >= 1000) {
-            prev = now;
-            position_controller.update(DT);
+    if (now - prev >= 1000) {
+        prev = now;
+        position_controller.update(DT);
 
                 // Print encoder values for debugging
-    Serial.print("L=");
-    Serial.print(left_motor_encoder.getRotation());
+        Serial.print("L=");
+        Serial.print(left_motor_encoder.getRotation());
 
-    Serial.print(" R=");
-    Serial.print(right_motor_encoder.getRotation());
+        Serial.print(" R=");
+        Serial.print(right_motor_encoder.getRotation());
 
-    float pos = (left_motor_encoder.getRotation() +
-                 right_motor_encoder.getRotation()) / 2.0f;
+        float pos = (left_motor_encoder.getRotation() +
+                    right_motor_encoder.getRotation()) / 2.0f;
 
-    Serial.print(" Avg=");
-    Serial.println(pos);
+        Serial.print(" Avg=");
+        Serial.println(pos);
 
-    // Stop when close enough to target
-    if (abs((2 * PI * 2) - pos) < 0.05) {
-        left_motor.setPWM(0);
-        right_motor.setPWM(0);
+        // Stop when close enough to target
+        if (abs(pos) > (2 * PI * 2)) {
+            left_motor.setPWM(0);
+            right_motor.setPWM(0);
 
-        Serial.println("Target reached");
+            Serial.println("Target reached");
 
-        while (1);
-    }
+            while (1);
+        }
 
             // Serial.println((left_motor_encoder.getRotation()+ right_motor_encoder.getRotation()) / 2.0f);
 
-        }
+    }
     // }
 
 
