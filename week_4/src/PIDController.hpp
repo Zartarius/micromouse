@@ -173,7 +173,7 @@ private:
     Encoder& right_encoder;
 
     float kp, ki, kd;
-    float track_width = 0.085; // Units in metres
+    float track_width = 0.090; // Units in metres
     float wheel_radius = 0.016;  // Units in metres
     float target = 0.0f;
 

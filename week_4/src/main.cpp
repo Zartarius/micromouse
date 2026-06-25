@@ -4,7 +4,7 @@
 #include "PIDController.hpp"
 
 
-#define MILLISECONDS_TO_MICROSECONDS(X) (X * 1000)
+#define MILLISECONDS_TO_MICROSECONDS(X) ((unsigned long)(X) * 1000UL)
 
 
 /*
@@ -29,7 +29,7 @@ mtrn3100::PIDController position_controller(mtrn3100::PIDMode::POSITION, left_mo
                                             30.0, 2.0, 0);
 mtrn3100::PIDController rotation_controller(mtrn3100::PIDMode::ROTATION, left_motor,
                                             left_motor_encoder, right_motor, right_motor_encoder,
-                                            15.0, 5.0, 0); // changed these up a bit, was originally 30.0, 2.0, 0
+                                            15.0, 7.0, 0); // changed these up a bit, was originally 30.0, 2.0, 0
 
 void setup() {
     Serial.begin(9600);
@@ -39,6 +39,9 @@ void setup() {
 #define USE_HARDCODED_CODE 0
 
 void loop() {
+
+    delay(100);
+
     #if USE_HARDCODED_CODE
     left_motor_encoder.setEncoderToZero();
     right_motor_encoder.setEncoderToZero();
@@ -46,77 +49,86 @@ void loop() {
     // the wheels need to turn 4.15 radians each, in order to travel 1/4th of the circle made by the axle
     left_motor.setPWM(-50);
     right_motor.setPWM(-50);
-    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.15) {
+    //was 4.41 is 180*
+    // trying 2.205
+    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 2.2) {
         continue;
     }
     left_motor.setPWM(0);
     right_motor.setPWM(0);
 
-    delay(1000);
+    // delay(1000);
 
-    left_motor_encoder.setEncoderToZero();
-    right_motor_encoder.setEncoderToZero();
-    // turn 90 degrees to the left
-    left_motor.setPWM(50);
-    right_motor.setPWM(50);
-    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.15) {
-        continue;
-    }
-    left_motor.setPWM(0);
-    right_motor.setPWM(0);
+    // left_motor_encoder.setEncoderToZero();
+    // right_motor_encoder.setEncoderToZero();
+    // // turn 90 degrees to the left
+    // left_motor.setPWM(50);
+    // right_motor.setPWM(50);
+    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.15) {
+    //     continue;
+    // }
+    // left_motor.setPWM(0);
+    // right_motor.setPWM(0);
 
-    delay(1000);
+    // delay(1000);
 
-    left_motor_encoder.setEncoderToZero();
-    right_motor_encoder.setEncoderToZero();
-    // turn 360 degrees to the right
-    left_motor.setPWM(-50);
-    right_motor.setPWM(-50);
-    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
-        continue;
-    }
-    left_motor.setPWM(0);
-    right_motor.setPWM(0);
+    // left_motor_encoder.setEncoderToZero();
+    // right_motor_encoder.setEncoderToZero();
+    // // turn 360 degrees to the right
+    // left_motor.setPWM(-50);
+    // right_motor.setPWM(-50);
+    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
+    //     continue;
+    // }
+    // left_motor.setPWM(0);
+    // right_motor.setPWM(0);
 
-    delay(1000);
+    // delay(1000);
 
-    left_motor_encoder.setEncoderToZero();
-    right_motor_encoder.setEncoderToZero();
-    // turn 360 degrees to the left
-    left_motor.setPWM(50);
-    right_motor.setPWM(50);
-    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
-        continue;
-    }
-    left_motor.setPWM(0);
-    right_motor.setPWM(0);
+    // left_motor_encoder.setEncoderToZero();
+    // right_motor_encoder.setEncoderToZero();
+    // // turn 360 degrees to the left
+    // left_motor.setPWM(50);
+    // right_motor.setPWM(50);
+    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
+    //     continue;
+    // }
+    // left_motor.setPWM(0);
+    // right_motor.setPWM(0);
 
-    delay(1000);
+    // delay(1000);
 
     #else
 
     // turn 90 degrees to the right, pid loop stops after 5 seconds, hopefully thats enough time for it
     // to get into the right position
     rotation_controller.reset();
-    rotation_controller.setTarget(-0.5 * PI);
-    unsigned long prev_time = 0;
+    rotation_controller.setTarget(-0.25 * PI);
+    unsigned long start_time = micros();
+    unsigned long prev_time = start_time;
+
     const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
-    while (prev_time < MILLISECONDS_TO_MICROSECONDS(5000)) {
+
+    while (micros() - start_time < 5000000UL) {
         unsigned long curr_time = micros();
 
         if (curr_time - prev_time >= sample_period) {
             prev_time += sample_period;
-
             rotation_controller.update(0.01f);
         }
     }
+
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
 
     // turn 90 degrees to the left
     rotation_controller.reset();
-    rotation_controller.setTarget(0.5 * PI);
-    unsigned long prev_time = 0;
-    const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
-    while (prev_time < MILLISECONDS_TO_MICROSECONDS(5000)) {
+    rotation_controller.setTarget(0.25 * PI);
+
+    start_time = micros();
+    prev_time = start_time;
+
+    while (micros() - start_time < 5000000UL) {
         unsigned long curr_time = micros();
 
         if (curr_time - prev_time >= sample_period) {
@@ -126,6 +138,8 @@ void loop() {
         }
     }
 
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
 
     #endif
 
