@@ -35,7 +35,7 @@ void setup() {
     Serial.begin(9600);
 }
 
-// Set to 1 if u want to use the pid code , 0 if u want to use hardcoded
+// Set to 1 if u want to use the hardcoded code , 0 if u want to use pid
 #define USE_HARDCODED_CODE 0
 
 void loop() {
