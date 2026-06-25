@@ -161,7 +161,7 @@ private:
     volatile unsigned long prev_time = 0;
     volatile unsigned long time_between_pulses = 0;
     #endif
-    const uint16_t counts_per_revolution = 1400;
+    const uint16_t counts_per_revolution = 700;
 
     static Encoder* instance_left;
     static Encoder* instance_right;

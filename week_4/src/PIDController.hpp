@@ -7,6 +7,11 @@
 namespace mtrn3100 {
 
 /*
+100 PWM is already fast enough, dont want the robot to go any faster
+*/
+static const float MAX_PWM_MAGNITUDE = 100.0f;
+
+/*
 Two control modes:
 
     POSITION - Controls the robots displacement, the target is defined
@@ -43,8 +48,6 @@ static float pid_compute(PIDState& state, float kp, float ki, float kd, float er
     return (kp * error) + (ki * state.integral) + (kd * derivative);
 }
 
-
-// ─── PIDController ───────────────────────────────────────────────────────────
 
 class PIDController {
 public:
@@ -105,16 +108,7 @@ public:
         if (mode == PIDMode::POSITION) {
             float error = target - ((-left_encoder.getRotation() + right_encoder.getRotation()) / 2.0f);
             float output = pid_compute(state, kp, ki, kd, error, dt);
-            output = constrain(output, -255.0f, 255.0f);
-
-
-            //debug
-            // Serial.print("Error=");
-            // Serial.print(error);
-
-            // Serial.print(" Output=");
-            // Serial.println(output);
-
+            output = constrain(output, -MAX_PWM_MAGNITUDE, MAX_PWM_MAGNITUDE);
 
             left_motor.setPWM(static_cast<int16_t>(-output));
             right_motor.setPWM(static_cast<int16_t>(output));
@@ -135,14 +129,7 @@ public:
 
             float error  = target - heading;
             float output = pid_compute(state, kp, ki, kd, error, dt);
-            output = constrain(output, -255.0f, 255.0f);
-
-            //debug
-            // Serial.print("Error=");
-            // Serial.print(error);
-
-            // Serial.print(" Output=");
-            // Serial.println(output);
+            output = constrain(output, -MAX_PWM_MAGNITUDE, MAX_PWM_MAGNITUDE);
 
             // Left wheel drives backward, right wheel drives forward (CCW turn)
             // Signs flip automatically with the error sign for CW turns.
@@ -173,7 +160,7 @@ private:
     Encoder& right_encoder;
 
     float kp, ki, kd;
-    float track_width = 0.090; // Units in metres
+    float track_width = 0.09; // Units in metres
     float wheel_radius = 0.016;  // Units in metres
     float target = 0.0f;
 

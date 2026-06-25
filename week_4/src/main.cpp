@@ -40,109 +40,113 @@ void setup() {
 
 void loop() {
 
-    delay(100);
+    delay(5000);
 
     #if USE_HARDCODED_CODE
+    // Move forward 20 cm
     left_motor_encoder.setEncoderToZero();
     right_motor_encoder.setEncoderToZero();
-    // turn 90 degrees to the right (cw)
-    // the wheels need to turn 4.15 radians each, in order to travel 1/4th of the circle made by the axle
+
     left_motor.setPWM(-50);
-    right_motor.setPWM(-50);
-    //was 4.41 is 180*
-    // trying 2.205
-    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 2.2) {
+    right_motor.setPWM(50);
+    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 2 * PI * 2) {
         continue;
     }
     left_motor.setPWM(0);
     right_motor.setPWM(0);
 
-    // delay(1000);
+    delay(2000);
 
-    // left_motor_encoder.setEncoderToZero();
-    // right_motor_encoder.setEncoderToZero();
-    // // turn 90 degrees to the left
-    // left_motor.setPWM(50);
-    // right_motor.setPWM(50);
-    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.15) {
-    //     continue;
-    // }
-    // left_motor.setPWM(0);
-    // right_motor.setPWM(0);
+    // Turn 90º CCW 4 times
+    for (uint8_t i {}; i < 4; i++) {
+        left_motor_encoder.setEncoderToZero();
+        right_motor_encoder.setEncoderToZero();
 
-    // delay(1000);
+        left_motor.setPWM(50);
+        right_motor.setPWM(50);
+        while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.4) {
+            continue;
+        }
+        left_motor.setPWM(0);
+        right_motor.setPWM(0);
 
-    // left_motor_encoder.setEncoderToZero();
-    // right_motor_encoder.setEncoderToZero();
-    // // turn 360 degrees to the right
-    // left_motor.setPWM(-50);
-    // right_motor.setPWM(-50);
-    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
-    //     continue;
-    // }
-    // left_motor.setPWM(0);
-    // right_motor.setPWM(0);
+        delay(1000);
+    }
 
-    // delay(1000);
+    // Turn 90º CW 4 times
+    for (uint8_t i {}; i < 4; i++) {
+        left_motor_encoder.setEncoderToZero();
+        right_motor_encoder.setEncoderToZero();
 
-    // left_motor_encoder.setEncoderToZero();
-    // right_motor_encoder.setEncoderToZero();
-    // // turn 360 degrees to the left
-    // left_motor.setPWM(50);
-    // right_motor.setPWM(50);
-    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
-    //     continue;
-    // }
-    // left_motor.setPWM(0);
-    // right_motor.setPWM(0);
+        left_motor.setPWM(-50);
+        right_motor.setPWM(-50);
+        while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.4) {
+            continue;
+        }
+        left_motor.setPWM(0);
+        right_motor.setPWM(0);
 
-    // delay(1000);
+        delay(1000);
+    }
 
     #else
 
-    // turn 90 degrees to the right, pid loop stops after 5 seconds, hopefully thats enough time for it
-    // to get into the right position
-    rotation_controller.reset();
-    rotation_controller.setTarget(-0.25 * PI);
+    const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
+
+    // Move forward 20 cm
+    position_controller.reset();
+    position_controller.setTarget(2 * PI * 2);
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
 
-    const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
-
     while (micros() - start_time < 5000000UL) {
-        unsigned long curr_time = micros();
-
-        if (curr_time - prev_time >= sample_period) {
+        if (micros() - prev_time >= sample_period) {
             prev_time += sample_period;
             rotation_controller.update(0.01f);
         }
     }
-
     left_motor.setPWM(0);
     right_motor.setPWM(0);
 
-    // turn 90 degrees to the left
-    rotation_controller.reset();
-    rotation_controller.setTarget(0.25 * PI);
+    // Turn 90º CCW 4 times
+    for (uint8_t i {}; i < 4; i++) {
+        rotation_controller.reset();
+        rotation_controller.setTarget(0.25 * 2.0 * PI);
+        start_time = micros();
+        prev_time = start_time;
 
-    start_time = micros();
-    prev_time = start_time;
-
-    while (micros() - start_time < 5000000UL) {
-        unsigned long curr_time = micros();
-
-        if (curr_time - prev_time >= sample_period) {
-            prev_time += sample_period;
-
-            rotation_controller.update(0.01f);
+        while (micros() - start_time < 5000000UL) {
+            if (micros() - prev_time >= sample_period) {
+                prev_time += sample_period;
+                rotation_controller.update(0.01f);
+            }
         }
+
+        left_motor.setPWM(0);
+        right_motor.setPWM(0);
     }
 
-    left_motor.setPWM(0);
-    right_motor.setPWM(0);
+    // Turn 90º CW 4 times
+    for (uint8_t i {}; i < 4; i++) {
+        rotation_controller.reset();
+        rotation_controller.setTarget(-0.25 * 2.0 * PI);
+        start_time = micros();
+        prev_time = start_time;
+
+        while (micros() - start_time < 5000000UL) {
+            if (micros() - prev_time >= sample_period) {
+                prev_time += sample_period;
+                rotation_controller.update(0.01f);
+            }
+        }
+
+        left_motor.setPWM(0);
+        right_motor.setPWM(0);
+    }
 
     #endif
 
+    while (true) ;
 }
 // position_controller.update(0.01f);
 
@@ -252,3 +256,84 @@ void loop() {
 //     #endif
 // >>>>>>> Stashed changes
 // }
+
+    // delay(1000);
+
+    // left_motor_encoder.setEncoderToZero();
+    // right_motor_encoder.setEncoderToZero();
+    // // turn 90 degrees to the left
+    // left_motor.setPWM(50);
+    // right_motor.setPWM(50);
+    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.15) {
+    //     continue;
+    // }
+    // left_motor.setPWM(0);
+    // right_motor.setPWM(0);
+
+    // delay(1000);
+
+    // left_motor_encoder.setEncoderToZero();
+    // right_motor_encoder.setEncoderToZero();
+    // // turn 360 degrees to the right
+    // left_motor.setPWM(-50);
+    // right_motor.setPWM(-50);
+    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
+    //     continue;
+    // }
+    // left_motor.setPWM(0);
+    // right_motor.setPWM(0);
+
+    // delay(1000);
+
+    // left_motor_encoder.setEncoderToZero();
+    // right_motor_encoder.setEncoderToZero();
+    // // turn 360 degrees to the left
+    // left_motor.setPWM(50);
+    // right_motor.setPWM(50);
+    // while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.0 * 4.15) {
+    //     continue;
+    // }
+    // left_motor.setPWM(0);
+    // right_motor.setPWM(0);
+
+    // delay(1000);
+
+
+
+
+
+
+        // turn 90 degrees to the right, pid loop stops after 5 seconds, hopefully thats enough time for it
+    // to get into the right position
+    // rotation_controller.reset();
+    // rotation_controller.setTarget(-0.25 * PI);
+    // start_time = micros();
+    // prev_time = start_time;
+
+
+    // while (micros() - start_time < 5000000UL) {
+    //     if (micros() - prev_time >= sample_period) {
+    //         prev_time += sample_period;
+    //         rotation_controller.update(0.01f);
+    //     }
+    // }
+
+    // left_motor.setPWM(0);
+    // right_motor.setPWM(0);
+
+    // // turn 90 degrees to the left
+    // rotation_controller.reset();
+    // rotation_controller.setTarget(0.25 * PI);
+
+    // start_time = micros();
+    // prev_time = start_time;
+
+    // while (micros() - start_time < 5000000UL) {
+    //     unsigned long curr_time = micros();
+
+    //     if (curr_time - prev_time >= sample_period) {
+    //         prev_time += sample_period;
+
+    //         rotation_controller.update(0.01f);
+    //     }
+    // }
