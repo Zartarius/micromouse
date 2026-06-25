@@ -29,7 +29,7 @@ mtrn3100::PIDController position_controller(mtrn3100::PIDMode::POSITION, left_mo
                                             30.0, 2.0, 0);
 mtrn3100::PIDController rotation_controller(mtrn3100::PIDMode::ROTATION, left_motor,
                                             left_motor_encoder, right_motor, right_motor_encoder,
-                                            15.0, 7.0, 0); // changed these up a bit, was originally 30.0, 2.0, 0
+                                            15.0, 3.2, 0); // changed these up a bit, was originally 30.0, 2.0, 0
 
 void setup() {
     Serial.begin(9600);
@@ -40,7 +40,7 @@ void setup() {
 
 void loop() {
 
-    delay(5000);
+    delay(100);
 
     #if USE_HARDCODED_CODE
     // Move forward 20 cm
@@ -102,11 +102,15 @@ void loop() {
     while (micros() - start_time < 5000000UL) {
         if (micros() - prev_time >= sample_period) {
             prev_time += sample_period;
-            rotation_controller.update(0.01f);
+            position_controller.update(0.01f);
         }
     }
     left_motor.setPWM(0);
     right_motor.setPWM(0);
+
+    // after forward motion
+        left_motor_encoder.setEncoderToZero();
+        right_motor_encoder.setEncoderToZero();
 
     // Turn 90º CCW 4 times
     for (uint8_t i {}; i < 4; i++) {
