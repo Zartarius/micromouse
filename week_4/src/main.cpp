@@ -26,10 +26,12 @@ mtrn3100::Encoder left_motor_encoder(LEFT_MOTOR_ENC_A_PIN, LEFT_MOTOR_ENC_B_PIN,
 mtrn3100::Encoder right_motor_encoder(RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN, mtrn3100::EncoderSide::RIGHT);
 mtrn3100::PIDController position_controller(mtrn3100::PIDMode::POSITION, left_motor,
                                             left_motor_encoder, right_motor, right_motor_encoder,
-                                            30.0, 2.0, 0);
+                                            55.0, 0.3, 0.15);
 mtrn3100::PIDController rotation_controller(mtrn3100::PIDMode::ROTATION, left_motor,
                                             left_motor_encoder, right_motor, right_motor_encoder,
-                                            15.0, 3.2, 0); // changed these up a bit, was originally 30.0, 2.0, 0
+                                            60.0, 5, 0); // changed these up a bit, was originally 30.0, 2.0, 0
+// for position, original values were 30.0, 2.0, 0
+// for rotation original values were 15.0, 3.2, 0
 
 void setup() {
     Serial.begin(9600);
@@ -40,7 +42,7 @@ void setup() {
 
 void loop() {
 
-    delay(100);
+    delay(5000);
 
     #if USE_HARDCODED_CODE
     // Move forward 20 cm
@@ -95,7 +97,7 @@ void loop() {
 
     // Move forward 20 cm
     position_controller.reset();
-    position_controller.setTarget(2 * PI * 2);
+    position_controller.setTarget(14.3f);
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
 
@@ -109,8 +111,8 @@ void loop() {
     right_motor.setPWM(0);
 
     // after forward motion
-        left_motor_encoder.setEncoderToZero();
-        right_motor_encoder.setEncoderToZero();
+    left_motor_encoder.setEncoderToZero();
+    right_motor_encoder.setEncoderToZero();
 
     // Turn 90º CCW 4 times
     for (uint8_t i {}; i < 4; i++) {
@@ -119,7 +121,7 @@ void loop() {
         start_time = micros();
         prev_time = start_time;
 
-        while (micros() - start_time < 5000000UL) {
+        while (micros() - start_time < 3800000UL) {
             if (micros() - prev_time >= sample_period) {
                 prev_time += sample_period;
                 rotation_controller.update(0.01f);
@@ -137,7 +139,7 @@ void loop() {
         start_time = micros();
         prev_time = start_time;
 
-        while (micros() - start_time < 5000000UL) {
+        while (micros() - start_time < 3800000UL) {
             if (micros() - prev_time >= sample_period) {
                 prev_time += sample_period;
                 rotation_controller.update(0.01f);
