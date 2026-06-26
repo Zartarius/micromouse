@@ -7,9 +7,9 @@
 namespace mtrn3100 {
 
 /*
-100 PWM is already fast enough, dont want the robot to go any faster
+    100 PWM is already fast enough, dont want the robot to go any faster
 */
-static const float MAX_PWM_MAGNITUDE = 100.0f;
+static const float MAX_PWM_MAGNITUDE = 255.0f;
 
 /*
 Two control modes:
@@ -106,7 +106,7 @@ public:
     */
     void update(float dt) {
         if (mode == PIDMode::POSITION) {
-            float error = target - ((-left_encoder.getRotation() + right_encoder.getRotation()) / 2.0f);
+            float error = getError();
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -MAX_PWM_MAGNITUDE, MAX_PWM_MAGNITUDE);
 
@@ -114,20 +114,7 @@ public:
             right_motor.setPWM(static_cast<int16_t>(output));
 
         } else if (mode == PIDMode::ROTATION) {
-            // Robot heading from differential wheel odometry:
-            //   heading = (right_travel - left_travel) / track_width
-            // where travel = wheel_radius * getRotation(), but since
-            // wheel_radius cancels when both wheels are the same size and
-            // the user supplies track_width in matching units, we fold it in:
-            //   heading_rad = (right_rot - left_rot) * wheel_radius / track_width
-            // If you don't know wheel_radius separately, supply
-            // (wheel_radius / track_width) as a single tuned scalar via kp.
-            // Here we keep it explicit so units are clear.
-            float right_rot = right_encoder.getRotation();
-            float left_rot = -left_encoder.getRotation();
-            float heading = (right_rot * wheel_radius - left_rot * wheel_radius) / track_width;
-
-            float error  = target - heading;
+            float error  = getError();
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -MAX_PWM_MAGNITUDE, MAX_PWM_MAGNITUDE);
 
@@ -149,6 +136,47 @@ public:
         state.prev_error = 0.0f;
         left_encoder.setEncoderToZero();
         right_encoder.setEncoderToZero();
+    }
+
+
+    /*
+        Returns the current error of the controller
+    */
+    float getError() {
+        if (mode == PIDMode::POSITION) {
+            return target - ((-left_encoder.getRotation() + right_encoder.getRotation()) / 2.0f);
+        } else if (mode == PIDMode::ROTATION) {
+            // Robot heading from differential wheel odometry:
+            //   heading = (right_travel - left_travel) / track_width
+            // where travel = wheel_radius * getRotation(), but since
+            // wheel_radius cancels when both wheels are the same size and
+            // the user supplies track_width in matching units, we fold it in:
+            //   heading_rad = (right_rot - left_rot) * wheel_radius / track_width
+            // If you don't know wheel_radius separately, supply
+            // (wheel_radius / track_width) as a single tuned scalar via kp.
+            // Here we keep it explicit so units are clear.
+            float right_rot = right_encoder.getRotation();
+            float left_rot = -left_encoder.getRotation();
+            return target - (right_rot * wheel_radius - left_rot * wheel_radius) / track_width;
+        } else {
+            return 0.0f;
+        }
+    }
+
+
+    /*
+        Returns true once the robot is within a certain position and speed tolerance of
+        the target
+            - position_tolerance: The tolerance of the robots positions in radians of
+            wheel turns. Note that position can also refer to angular position in this case.
+            - speed_tolerance: The tolerance of the robots speed in radians/sec (wheel turn)
+    */
+    bool isFinished(float position_tolerance, float speed_tolerance) {
+        // float error = getError();
+        // float speed = fabs(left_motor_encoder.getSpeed() + right_motor_encoder.getSpeed()) / 2.0f;
+
+        // return fabs(error) <= position_tolerance && speed <= speed_tolerance;
+        return false;
     }
 
 private:
