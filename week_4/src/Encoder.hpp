@@ -6,7 +6,7 @@
     Set this to a non-zero value if you want to use the getSpeed() method. This method is
     experimental and I'm not 100% sure if it works, so I'll leave it out for now.
 */
-#define USE_SPEED_FUNCTIONALITY 0
+#define USE_SPEED_FUNCTIONALITY 1
 
 namespace mtrn3100 {
 
