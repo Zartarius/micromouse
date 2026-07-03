@@ -2,8 +2,23 @@
 
 #include <Arduino.h>
 #include <MPU6050_light.h>
+#include "Miscellaneous.hpp"
+
+/*
+    Set this to a non-zero value if you want to use a moving average
+    filter to calculate IMU readings.
+*/
+#define USE_MOVING_AVERAGE_FILTER 1
 
 namespace mtrn3100 {
+
+#if USE_MOVING_AVERAGE_FILTER
+/*
+    Size of the window used in moving average filter calculations. Keep within
+    the range 10-25.
+*/
+static const uint8_t WINDOW_SIZE = 10;
+#endif
 
 class IMUGyroscope {
 public:
@@ -38,6 +53,9 @@ public:
 
 private:
     MPU6050 mpu6050;
+    #if USE_MOVING_AVERAGE_FILTER
+    mtrn3100::RingBuffer<float, WINDOW_SIZE> ring_buffer;
+    #endif
 };
 
 }
