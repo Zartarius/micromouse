@@ -179,6 +179,64 @@ public:
         return false;
     }
 
+    // void straightWithPIDEncoder(float distanceCms) {
+    //     const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
+
+    //     this.reset();
+    //     //position_controller.setTarget(14.3f); 14.3f -> 20cm
+    //     this.setTarget(distanceCms * 0.715);
+    //     unsigned long start_time = micros();
+    //     unsigned long prev_time = start_time;
+
+    //     while (micros() - start_time < 5000000UL) {
+    //         if (micros() - prev_time >= sample_period) {
+    //             prev_time += sample_period;
+    //             this.update(0.01f);
+    //         }
+    //     }
+
+    //     left_motor.setPWM(0);
+    //     right_motor.setPWM(0);
+    // }
+
+    // void turnLeft(float degrees = 90) {
+    //     this.reset();
+    //     degrees = abs(degrees);
+    //     //rotation_controller.setTarget(0.25 * 2.0 * PI);     0.5 * pi -> 90 degrees left
+    //     this.setTarget(degrees * PI / 180);
+    //     start_time = micros();
+    //     prev_time = start_time;
+
+    //     while (micros() - start_time < 3800000UL) {
+    //         if (micros() - prev_time >= sample_period) {
+    //             prev_time += sample_period;
+    //             this.update(0.01f);
+    //         }
+    //     }
+
+    //     left_motor.setPWM(0);
+    //     right_motor.setPWM(0);
+    // }
+
+    // void turnRight(float degrees = 90) {
+    //     this.reset();
+    //     degrees = abs(degrees);
+    //     //rotation_controller.setTarget(0.25 * 2.0 * PI);     -0.5 * pi -> 90 degrees right
+    //     this.setTarget(-degrees * PI / 180);
+    //     start_time = micros();
+    //     prev_time = start_time;
+
+    //     while (micros() - start_time < 3800000UL) {
+    //         if (micros() - prev_time >= sample_period) {
+    //             prev_time += sample_period;
+    //             this.update(0.01f);
+    //         }
+    //     }
+
+    //     left_motor.setPWM(0);
+    //     right_motor.setPWM(0);
+    // }
+
 private:
     PIDMode mode;
 

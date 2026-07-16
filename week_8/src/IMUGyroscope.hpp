@@ -8,7 +8,7 @@
     Set this to a non-zero value if you want to use a moving average
     filter to calculate IMU readings.
 */
-#define USE_MOVING_AVERAGE_FILTER 1
+#define USE_MOVING_AVERAGE_FILTER 0
 
 namespace mtrn3100 {
 
@@ -29,7 +29,7 @@ public:
     the MPU. Call this method at the beginning of main.cpp:setup.
     */
     void begin(void) {
-        Wire.begin();
+        // Wire.begin();
         if (mpu6050.begin() != 0) {
             Serial.println("Could not connect to MPU6050");
             while (true);
@@ -51,7 +51,7 @@ public:
         return mpu6050.getAngleZ();
     }
 
-private:
+// private:
     MPU6050 mpu6050;
     #if USE_MOVING_AVERAGE_FILTER
     mtrn3100::RingBuffer<float, WINDOW_SIZE> ring_buffer;

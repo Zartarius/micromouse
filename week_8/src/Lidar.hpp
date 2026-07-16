@@ -4,35 +4,65 @@
 #include <VL6180X.h>
 #include <Wire.h>
 
+
+namespace mtrn3100 {
+
 class Lidar {
 private:
-    VL6180X sensor;
+    VL6180X lidar;
     int enablePin;
     uint8_t address;
 
 public:
-    LidarSensor(int enablePin, uint8_t address) {
-        this->enablePin = enablePin;
-        this->address = address;
-    }
+    Lidar(int enablePin, uint8_t address) : enablePin{enablePin}, address{address} {}
 
-    void init() {
+    bool init() {
+        Serial.println("GOT HERE!!!!!!");
         pinMode(enablePin, OUTPUT);
         digitalWrite(enablePin, LOW);
         delay(50);
         digitalWrite(enablePin, HIGH);
         delay(50);
-        sensor.init();
-        sensor.configureDefault();
-        sensor.setTimeout(250);
-        sensor.setAddress(address);
+
+        Serial.println("enabled sensor");
+        Serial.println("calling lidar.init()");
+
+        Serial.println("2. About to call lidar.init()");
+        lidar.init();
+        Serial.println("3. Returned from lidar.init()");
+        lidar.setAddress(address);
+
+        uint8_t id = lidar.readReg(VL6180X::IDENTIFICATION__MODEL_ID);
+        Serial.print("Model ID = 0x");
+        Serial.println(id, HEX);
+
+        if (id != 0xB4) {
+            Serial.println("Wrong model ID");
+            return false;
+        }
+
+
+        // lidar.init();
+        // if (lidar.readReg(VL6180X::IDENTIFICATION__MODEL_ID) != 0xB4) {
+        //     return false;
+        // }
+
+        lidar.configureDefault();
+        lidar.setTimeout(250);
+
+        // if (!lidar.init()) {
+        //     return false;
+        // }
+        return true;
     }
 
     int read() {
-        return sensor.readRangeSingleMillimeters();
+        return lidar.readRangeSingleMillimeters();
     }
 
     bool timedOut() {
-        return sensor.timeoutOccurred();
+        return lidar.timeoutOccurred();
     }
 };
+
+}
