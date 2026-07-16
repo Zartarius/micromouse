@@ -5,6 +5,7 @@
 #include "Miscellaneous.hpp"
 #include "IMUGyroscope.hpp"
 #include "Lidar.hpp"
+#include "OLED.hpp"
 
 /*
 We assume MOT1 in "Micromouse_Kit_Information.pdf" to refer to the left motor,
@@ -44,15 +45,19 @@ mm::Lidar lidar2(LIDARLEFT_EN_PIN, 0x55);
 
 mm::Lidar lidar3(LIDARRIGHT_EN_PIN, 0x56);
 //lidar3 is right
+mm::OLED oled{};
+
 
 bool initOkay = false;
 
 void setup() {
     Wire.begin();
     gyroscope.begin();
+    oled.begin();
     Serial.begin(9600);
-    Serial.println("Scanning...");
 
+
+    Serial.println("Scanning...");
     initOkay = lidar1.init();
     if (!initOkay) {Serial.println("DID NOT CONNECT");};
     initOkay = lidar2.init();
@@ -62,21 +67,22 @@ void setup() {
     digitalWrite(LIDARFRONT_EN_PIN, LOW);
 }
 
-// Set to 1 if u want to use the hardcoded code , 0 if u want to use pid
-#define USE_HARDCODED_CODE 0
+mm::RotationController imu_controller{left_motor, right_motor, 10.0, 0.0, 0.0};
 
 void loop() {
-    if (initOkay) {
-        int distance = lidar3.read();
-        if (lidar3.timedOut()) {
-            Serial.println("TIMEOUT");
-        } else {
-            Serial.println(distance);
-        }
-    } else {
-        Serial.println("NA");
-    }
-    delay(100);
+    mm::rotate(imu_controller, 90.0f);
+
+    // if (initOkay) {
+    //     int distance = lidar3.read();
+    //     if (lidar3.timedOut()) {
+    //         Serial.println("TIMEOUT");
+    //     } else {
+    //         Serial.println(distance);
+    //     }
+    // } else {
+    //     Serial.println("NA");
+    // }
+    // delay(100);
 
 }
 
