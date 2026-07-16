@@ -8,7 +8,7 @@
 */
 #define USE_SPEED_FUNCTIONALITY 0
 
-namespace mtrn3100 {
+namespace mm {
 
 enum class EncoderSide {
     LEFT, RIGHT

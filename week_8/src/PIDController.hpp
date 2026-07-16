@@ -4,7 +4,7 @@
 #include "Motor.hpp"
 #include "Encoder.hpp"
 
-namespace mtrn3100 {
+namespace mm {
 
 /*
     100 PWM is already fast enough, dont want the robot to go any faster

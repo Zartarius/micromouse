@@ -5,7 +5,7 @@
 #include <Wire.h>
 
 
-namespace mtrn3100 {
+namespace mm {
 
 class Lidar {
 private:

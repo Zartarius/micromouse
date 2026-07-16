@@ -2,7 +2,7 @@
 
 #define MILLISECONDS_TO_MICROSECONDS(X) ((unsigned long)(X) * 1000UL)
 
-namespace mtrn3100 {
+namespace mm {
 
 /*
     Ringbuffer data structure, for use in moving average filters and other stuff.

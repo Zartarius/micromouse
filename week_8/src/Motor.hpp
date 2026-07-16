@@ -4,7 +4,7 @@
 
 #include "math.h"
 
-namespace mtrn3100 {
+namespace mm {
 
 class Motor {
 public:
