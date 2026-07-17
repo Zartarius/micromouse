@@ -4,10 +4,11 @@ Import("env")
 
 system = platform.system()
 
-if system == "Darwin":
-    env.Replace(BOARD="nanoatmega328")
+if system in {"Darwin", "Linux"}:
+    env.Replace(BOARD="nanoatmega328new")
+    env.Replace(UPLOAD_SPEED="115200")
 
-elif system == "Windows":
+elif system in {"Windows"}:
     env.Replace(BOARD="nanoatmega328new")
     env.Replace(UPLOAD_PORT="COM10")
     env.Replace(UPLOAD_SPEED="115200")

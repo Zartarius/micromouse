@@ -1,0 +1,210 @@
+Literally just upload random old code snippets here, in case we ever need them again.
+
+
+
+
+
+
+
+
+
+
+
+
+delay(5000);
+
+#if USE_HARDCODED_CODE
+// Move forward 20 cm
+left_motor_encoder.setEncoderToZero();
+right_motor_encoder.setEncoderToZero();
+
+left_motor.setPWM(-50);
+right_motor.setPWM(50);
+while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 2 * PI * 2) {
+    continue;
+}
+left_motor.setPWM(0);
+right_motor.setPWM(0);
+
+delay(2000);
+
+// Turn 90º CCW 4 times
+for (uint8_t i {}; i < 4; i++) {
+    left_motor_encoder.setEncoderToZero();
+    right_motor_encoder.setEncoderToZero();
+
+    left_motor.setPWM(50);
+    right_motor.setPWM(50);
+    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.4) {
+        continue;
+    }
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
+
+    delay(1000);
+}
+
+// Turn 90º CW 4 times
+for (uint8_t i {}; i < 4; i++) {
+    left_motor_encoder.setEncoderToZero();
+    right_motor_encoder.setEncoderToZero();
+
+    left_motor.setPWM(-50);
+    right_motor.setPWM(-50);
+    while ((fabs(left_motor_encoder.getRotation()) + fabs(right_motor_encoder.getRotation())) / 2.0f < 4.4) {
+        continue;
+    }
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
+
+    delay(1000);
+}
+
+#else
+
+const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
+
+// Move forward 20 cm
+position_controller.reset();
+position_controller.setTarget(14.3f);
+unsigned long start_time = micros();
+unsigned long prev_time = start_time;
+
+while (micros() - start_time < 5000000UL) {
+    if (micros() - prev_time >= sample_period) {
+        prev_time += sample_period;
+        position_controller.update(0.01f);
+    }
+}
+left_motor.setPWM(0);
+right_motor.setPWM(0);
+
+// after forward motion
+left_motor_encoder.setEncoderToZero();
+right_motor_encoder.setEncoderToZero();
+
+// Turn 90º CCW 4 times
+for (uint8_t i {}; i < 4; i++) {
+    rotation_controller.reset();
+    rotation_controller.setTarget(0.25 * 2.0 * PI);
+    start_time = micros();
+    prev_time = start_time;
+
+    while (micros() - start_time < 3800000UL) {
+        if (micros() - prev_time >= sample_period) {
+            prev_time += sample_period;
+            rotation_controller.update(0.01f);
+        }
+    }
+
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
+}
+
+// Turn 90º CW 4 times
+for (uint8_t i {}; i < 4; i++) {
+    rotation_controller.reset();
+    rotation_controller.setTarget(-0.25 * 2.0 * PI);
+    start_time = micros();
+    prev_time = start_time;
+
+    while (micros() - start_time < 3800000UL) {
+        if (micros() - prev_time >= sample_period) {
+            prev_time += sample_period;
+            rotation_controller.update(0.01f);
+        }
+    }
+
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
+}
+
+#endif
+
+while (true) ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#pragma once
+
+#include <Arduino.h>
+#include <VL6180X.h>
+#include <Wire.h>
+
+
+namespace mm {
+
+class Lidar {
+private:
+    VL6180X lidar;
+    int enablePin;
+    uint8_t address;
+
+public:
+    Lidar(int enablePin, uint8_t address) : enablePin{enablePin}, address{address} {}
+
+    bool init() {
+        Serial.println("GOT HERE!!!!!!");
+        pinMode(enablePin, OUTPUT);
+        digitalWrite(enablePin, LOW);
+        delay(50);
+        digitalWrite(enablePin, HIGH);
+        delay(50);
+
+        Serial.println("enabled sensor");
+        Serial.println("calling lidar.init()");
+
+        Serial.println("2. About to call lidar.init()");
+        lidar.init();
+        Serial.println("3. Returned from lidar.init()");
+        lidar.setAddress(address);
+
+        uint8_t id = lidar.readReg(VL6180X::IDENTIFICATION__MODEL_ID);
+        Serial.print("Model ID = 0x");
+        Serial.println(id, HEX);
+
+        if (id != 0xB4) {
+            Serial.println("Wrong model ID");
+            return false;
+        }
+
+
+        // lidar.init();
+        // if (lidar.readReg(VL6180X::IDENTIFICATION__MODEL_ID) != 0xB4) {
+        //     return false;
+        // }
+
+        lidar.configureDefault();
+        lidar.setTimeout(250);
+
+        // if (!lidar.init()) {
+        //     return false;
+        // }
+        return true;
+    }
+
+    int read() {
+        return lidar.readRangeSingleMillimeters();
+    }
+
+    bool timedOut() {
+        return lidar.timeoutOccurred();
+    }
+};
+
+}

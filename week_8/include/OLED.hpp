@@ -14,7 +14,7 @@ public:
     OLED(uint8_t width = 128, uint8_t height = 64, TwoWire *wire = &Wire, int8_t reset_pin = -1)
         : display(width, height, wire, reset_pin) {}
 
-    bool begin(uint8_t i2c_addr = 0x43) {
+    bool begin(uint8_t i2c_addr = 0x3C) {
         if (!display.begin(SSD1306_SWITCHCAPVCC, i2c_addr)) {
             Serial.println("OLED: SSD1306 allocation failed");
             return false;
