@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "Motor.hpp"
 #include "Encoder.hpp"
+#include "IMUGyroscope.hpp"
 
 namespace mm {
 
@@ -65,11 +66,11 @@ public:
       Positive = CCW (left turn), negative = CW (right turn).
     */
     PIDController(PIDMode mode, Motor& left_motor, Encoder& left_encoder,
-                  Motor& right_motor, Encoder& right_encoder,
+                  Motor& right_motor, Encoder& right_encoder, IMUGyroscope& gyroscope,
                   float kp, float ki, float kd)
         : mode{mode},
           left_motor{left_motor}, left_encoder{left_encoder},
-          right_motor{right_motor}, right_encoder{right_encoder},
+          right_motor{right_motor}, right_encoder{right_encoder}, gyroscope{gyroscope},
           kp{kp}, ki{ki}, kd{kd} {}
 
 
@@ -110,8 +111,14 @@ public:
             float output = pid_compute(state, kp, ki, kd, error, dt);
             output = constrain(output, -MAX_PWM_MAGNITUDE, MAX_PWM_MAGNITUDE);
 
-            left_motor.setPWM(static_cast<int16_t>(-output));
-            right_motor.setPWM(static_cast<int16_t>(output));
+            gyroscope.update();
+            float heading_error = heading_target - gyroscope.getHeading();
+            float heading_output = pid_compute(heading_state, heading_kp, heading_ki, heading_kd, heading_error, dt);
+
+            heading_output = constrain(heading_output, -60, 60);
+
+            left_motor.setPWM(static_cast<int16_t>(-(output - heading_output)));
+            right_motor.setPWM(static_cast<int16_t>(output + heading_output));
 
         } else if (mode == PIDMode::ROTATION) {
             float error  = getError();
@@ -136,6 +143,11 @@ public:
         state.prev_error = 0.0f;
         left_encoder.setEncoderToZero();
         right_encoder.setEncoderToZero();
+        
+        gyroscope.update();
+        heading_target = gyroscope.getHeading();
+        heading_state.integral = 0.0f;
+        heading_state.prev_error = 0.0f;
     }
 
 
@@ -179,25 +191,68 @@ public:
         return false;
     }
 
-    // void straightWithPIDEncoder(float distanceCms) {
-    //     const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
+    void straightWithPIDEncoder(float distanceCms) {
+        const unsigned long sample_period = MILLISECONDS_TO_MICROSECONDS(10);
 
-    //     this.reset();
-    //     //position_controller.setTarget(14.3f); 14.3f -> 20cm
-    //     this.setTarget(distanceCms * 0.715);
-    //     unsigned long start_time = micros();
-    //     unsigned long prev_time = start_time;
+        this->reset();
+        //position_controller.setTarget(14.3f); 14.3f -> 20cm
+        this->setTarget(distanceCms * 0.715);
+        unsigned long start_time = micros();
+        unsigned long prev_time = start_time;
 
-    //     while (micros() - start_time < 5000000UL) {
-    //         if (micros() - prev_time >= sample_period) {
-    //             prev_time += sample_period;
-    //             this.update(0.01f);
-    //         }
-    //     }
+        while (micros() - start_time < 5000000UL) {
+            if (micros() - prev_time >= sample_period) {
+                prev_time += sample_period;
+                this->update(0.01f);
+            }
+        }
 
-    //     left_motor.setPWM(0);
-    //     right_motor.setPWM(0);
-    // }
+        left_motor.setPWM(0);
+        right_motor.setPWM(0);
+    }
+
+
+    //just a test function //
+    void testStraightDistance()
+{
+    float distances[] =
+    {
+        10,
+        20,
+        40,
+        60,
+        80
+    };
+
+    for (float d : distances)
+    {
+        Serial.print("Driving ");
+        Serial.print(d);
+        Serial.println(" cm");
+
+        straightWithPIDEncoder(d);
+
+        gyroscope.update();
+
+        float left =
+            fabs(left_encoder.getRotation());
+
+        float right =
+            fabs(right_encoder.getRotation());
+
+        float measured =
+            ((left + right) / 2.0f) / 0.715f;
+
+        Serial.print("Measured distance: ");
+        Serial.println(measured);
+
+        Serial.print("Final heading: ");
+        Serial.println(gyroscope.getHeading());
+
+        delay(3000);
+    }
+}
+
 
     // void turnLeft(float degrees = 90) {
     //     this.reset();
@@ -244,6 +299,7 @@ private:
     Encoder& left_encoder;
     Motor& right_motor;
     Encoder& right_encoder;
+    IMUGyroscope& gyroscope;
 
     float kp, ki, kd;
     float track_width = 0.09; // Units in metres
@@ -251,6 +307,13 @@ private:
     float target = 0.0f;
 
     PIDState state;
+    PIDState heading_state;
+
+    float heading_target = 0.0f;
+
+    float heading_kp = 8.0f;
+    float heading_ki = 0.0f;
+    float heading_kd = 0.5f;
 };
 
 }

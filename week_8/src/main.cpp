@@ -28,15 +28,16 @@ mm::Motor left_motor(LEFT_MOTOR_PWM_PIN, LEFT_MOTOR_DIR_PIN);
 mm::Motor right_motor(RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR_PIN);
 mm::Encoder left_motor_encoder(LEFT_MOTOR_ENC_A_PIN, LEFT_MOTOR_ENC_B_PIN, mm::EncoderSide::LEFT);
 mm::Encoder right_motor_encoder(RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN, mm::EncoderSide::RIGHT);
+mm::IMUGyroscope gyroscope{};
 mm::PIDController position_controller(mm::PIDMode::POSITION, left_motor,
-                                            left_motor_encoder, right_motor, right_motor_encoder,
+                                            left_motor_encoder, right_motor, right_motor_encoder, gyroscope, 
                                             55.0, 0.3, 0.15);
 mm::PIDController rotation_controller(mm::PIDMode::ROTATION, left_motor,
-                                            left_motor_encoder, right_motor, right_motor_encoder,
+                                            left_motor_encoder, right_motor, right_motor_encoder, gyroscope,
                                             60.0, 5, 0); // changed these up a bit, was originally 30.0, 2.0, 0
 // for position, original values were 30.0, 2.0, 0
 // for rotation original values were 15.0, 3.2, 0
-mm::IMUGyroscope gyroscope{};
+
 mm::Lidar lidar1(LIDARFRONT_EN_PIN, 0x54);
 //lidar1 is front
 
