@@ -47,7 +47,6 @@ public:
         Wire.endTransmission();
 
         mpu6050.calcOffsets();
-        // todo: possibly hardcode zero bias
     }
 
     /*
@@ -69,7 +68,7 @@ public:
     }
 
     /*
-    Returns heading of the IMU, in degrees. CW is negative, CCW is positive. 
+    Returns heading of the IMU, in degrees. CW is negative, CCW is positive.
     */
     float getHeading() {
         #if USE_MOVING_AVERAGE_FILTER
@@ -94,98 +93,3 @@ private:
     mm::RingBuffer<float, WINDOW_SIZE> ring_buffer;
     #endif
 };
-
-
-// class RotationController {
-// public:
-//     RotationController(IMUGyroscope& gyroscope, Motor& left_motor, Motor& right_motor,
-//                         float kp, float ki, float kd)
-//                     : gyroscope{gyroscope}, left_motor{left_motor}, right_motor{right_motor}, kp{kp}, ki{ki}, kd{kd} {}
-
-//     void setTarget(float target) {
-//         this->target = target;
-
-//         state.integral = 0.0f;
-//         state.prev_error = 0.0f;
-
-//         gyroscope.reset();
-//     }
-
-//     float getError(void) {
-//         return target - gyroscope.getHeading();
-//     }
-
-//     void update(float dt) {
-//         float error = getError();
-//         float output = pid_compute(dt, error);
-//         output = constrain(output, -255, 255);
-
-//         left_motor.setPWM(static_cast<int16_t>(output));
-//         right_motor.setPWM(static_cast<int16_t>(output));
-//     }
-
-//     void stop(void) {
-//         left_motor.setPWM(0);
-//         right_motor.setPWM(0);
-//     }
-
-// private:
-//     /*
-//         State of PID control, includes current integral value, previous error and the max integral absolute value
-//     */
-//     struct PIDState {
-//         float integral = 0.0f;
-//         float prev_error = 0.0f;
-//         float integral_limit = 100.0f;
-//     };
-
-//     /*
-//         Computes a pid output given the state and parameters
-//     */
-//     float pid_compute(float dt, float error) {
-//         state.integral += error * dt;
-//         state.integral = constrain(state.integral, -state.integral_limit, state.integral_limit);
-//         float derivative = (error - state.prev_error) / dt;
-//         state.prev_error = error;
-//         return (kp * error) + (ki * state.integral) + (kd * derivative);
-//     }
-
-//     IMUGyroscope& gyroscope;
-
-//     Motor& left_motor;
-//     Motor& right_motor;
-
-//     float kp, ki, kd;
-//     float target = 0.0f;
-
-//     PIDState state;
-
-
-//     // to remove later
-//     friend void rotate(RotationController& controller, float target);
-// };
-
-// void rotate(RotationController& controller, float target) {
-//     controller.setTarget(target);
-
-//     unsigned long start = micros();
-//     unsigned long prev = start;
-
-//     while (micros() - start < MILLISECONDS_TO_MICROSECONDS(3000)) {
-//         controller.gyroscope.update();
-
-//         if (micros() - prev >= MILLISECONDS_TO_MICROSECONDS(10)) {
-//             prev += MILLISECONDS_TO_MICROSECONDS(10);
-//             controller.update(0.01f);
-//         }
-
-//         // Serial.println(controller.getError());
-//         // Serial.println(controller.gyroscope.getHeading());
-//         Serial.println(controller.getError());
-//     }
-
-//     controller.stop();
-// }
-
-}
-

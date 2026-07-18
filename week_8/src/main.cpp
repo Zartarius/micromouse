@@ -38,15 +38,17 @@ void setup() {
     // Serial.println(BUILD_TIMESTAMP);
     Wire.begin();
     Serial.println("Began Wire!");
-    delay(1000); // Give time for gyroscope to be still
-    gyroscope.begin();
-    Serial.println("Began Gyroscope!");
+
     oled.begin();
     Serial.println("Began OLED!");
     oled.print("Testing OLED: %d %d %d", 1, 2, 3);
 
     collectiveLidars.initAll();
     Serial.println("Began LIDARs!");
+
+    delay(500); // Give time for gyroscope to be still
+    gyroscope.begin();
+    Serial.println("Began Gyroscope!");
 }
 
 void turning(void) {
