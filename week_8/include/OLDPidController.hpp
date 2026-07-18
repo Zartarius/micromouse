@@ -5,7 +5,7 @@
 #include <Arduino.h>
 #include "Motor.hpp"
 
-#include "IMUGyroscope.hpp"
+#include "Gyroscope.hpp"
 
 namespace mm {
 

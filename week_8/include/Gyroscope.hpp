@@ -69,7 +69,7 @@ public:
     }
 
     /*
-    Returns heading of the IMU, yet to determine units etc.
+    Returns heading of the IMU, in degrees. CW is negative, CCW is positive. 
     */
     float getHeading() {
         #if USE_MOVING_AVERAGE_FILTER

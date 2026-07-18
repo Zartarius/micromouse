@@ -68,9 +68,12 @@ extern mm::Motor left_motor, right_motor;
 extern mm::Gyroscope gyroscope;
 extern mm::LidarSystem collectiveLidars;
 
-void rotate(mm::PIDController& rotation_controller, float degrees) {
+void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gyroscope = true) {
     rotation_controller.setTarget(degrees);
-    gyroscope.reset();
+    
+    if (reset_gyroscope) {
+        gyroscope.reset();
+    }
 
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
@@ -110,7 +113,10 @@ void rotate(mm::PIDController& rotation_controller, float degrees) {
 void driveStraight(mm::PIDController& position_controller,
                 mm::PIDController& heading_controller,
                 float distance) {
-    float wheel_turns = distance / (2.0f * PI * 16.0f);
+    left_motor.setEncoderToZero();
+    right_motor.setEncoderToZero();
+
+    float wheel_turns = distance / 16.0f;
     position_controller.setTarget(wheel_turns);
 
     gyroscope.reset();
@@ -119,13 +125,13 @@ void driveStraight(mm::PIDController& position_controller,
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
 
-    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(5000);
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(3000);
 
     float pos_error = wheel_turns - ((-left_motor.getRotation() + right_motor.getRotation()) / 2.0f);
-    float prev_pos_error = pos_error;
-    float pos_derivative = 0.0f;
+    // float prev_pos_error = pos_error;
+    // // float pos_derivative = 0.0f;
 
-    while ((fabs(pos_error) > 0.7f || fabs(pos_derivative) > 2.5f) &&
+    while (/*(fabs(pos_error) > 0.7f || fabs(pos_derivative) > 2.5f) &&*/
             micros() - start_time < timeout) {
 
         unsigned long now = micros();
@@ -134,19 +140,16 @@ void driveStraight(mm::PIDController& position_controller,
 
         pos_error = wheel_turns - ((-left_motor.getRotation() + right_motor.getRotation()) / 2.0f);
 
-        if (dt > 0.0f) {
-            pos_derivative = (pos_error - prev_pos_error) / dt;
-        }
-        prev_pos_error = pos_error;
+        // if (dt > 0.0f) {
+        //     // pos_derivative = (pos_error - prev_pos_error) / dt;
+        // }
+        // // prev_pos_error = pos_error;
 
         int16_t forward_output = position_controller.compute_output(pos_error, dt, -80, 80);
 
         gyroscope.update();
         float heading_error = 0.0f - gyroscope.getHeading();
-        int16_t heading_output = heading_controller.compute_output(heading_error, dt, -40, 40);
-        // if (fabs(heading_error) < 2.5f) {
-        //     heading_output = 0.0f;
-        // }
+        int16_t heading_output = heading_controller.compute_output(heading_error, dt, -60, 60);
 
         int16_t left_output = -forward_output + heading_output; // maybe do - heading_output if this doesn't work
         int16_t right_output = forward_output + heading_output;

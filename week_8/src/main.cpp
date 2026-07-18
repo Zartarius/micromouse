@@ -24,37 +24,9 @@ mm::Motor right_motor(mm::MotorSide::RIGHT, RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR
 mm::Gyroscope gyroscope;
 mm::PIDController rotation_controller(5.0, 0.25, 0.5);
 mm::PIDController position_controller(40.0, 0.3, 0.15);
-mm::PIDController heading_controller(3.0, 0.0, 0.3);
+mm::PIDController heading_controller(10.0, 0.0, 0.5);
 mm::LidarSystem collectiveLidars;
 mm::OLED oled;
-
-/*
-mm::PIDController position_controller(mm::PIDMode::POSITION, left_motor,
-                                            left_motor_encoder, right_motor, right_motor_encoder, gyroscope,
-                                            55.0, 0.3, 0.15);
-mm::PIDController rotation_controller(mm::PIDMode::ROTATION, left_motor,
-                                            left_motor_encoder, right_motor, right_motor_encoder, gyroscope,
-                                            60.0, 5, 0); // changed these up a bit, was originally 30.0, 2.0, 0
-
-// for position, original values were 30.0, 2.0, 0
-// for rotation original values were 15.0, 3.2, 0
-*/
-
-/*
-mm::PIDController lidar_controller(mm::PIDMode::POSITION, left_motor,
-                                            left_motor_encoder, right_motor, right_motor_encoder, gyroscope,
-                                            0.1, 0, 0);
-*/
-
-// mm::Lidar lidar1(LIDARFRONT_EN_PIN, 0x54);
-// //lidar1 is front
-
-// mm::Lidar lidar2(LIDARLEFT_EN_PIN, 0x55);
-// //lidar2 is left
-
-// mm::Lidar lidar3(LIDARRIGHT_EN_PIN, 0x56);
-// //lidar3 is right
-
 
 
 bool initOkay = false;
@@ -65,7 +37,7 @@ void setup() {
     // Serial.println(BUILD_TIMESTAMP);
     Wire.begin();
     Serial.println("Began Wire!");
-    delay(500); // Give time for gyroscope to be still
+    delay(1000); // Give time for gyroscope to be still
     gyroscope.begin();
     Serial.println("Began Gyroscope!");
     oled.begin();
@@ -74,79 +46,116 @@ void setup() {
 
     collectiveLidars.initAll();
     Serial.println("Began LIDARs!");
-    // single lidar class
-    // Serial.println("Scanning...");
-    // initOkay = lidar1.init();
-    // if (!initOkay) {Serial.println("DID NOT CONNECT");};
-    // initOkay = lidar2.init();
-    // initOkay = lidar3.init();
-
-    // digitalWrite(LIDARLEFT_EN_PIN, LOW);
-    // digitalWrite(LIDARFRONT_EN_PIN, LOW);
-
-
 }
 
-// mm::RotationController imu_controller{gyroscope, left_motor, right_motor, 7.0, 0.1, 0.5};
 
-void printLidar() {
-    int distance = collectiveLidars.readFront();
-    Serial.println(distance);
-    delay(200);
+void turning() {
+    // float og_heading = gyroscope.getHeading();
+    //turn 90*
+    rotate(rotation_controller, -90.0f);
+    
+    //wait an allotted time for demonstrator to turn
+    // float og_heading = gyroscope.getHeading(); // gonna be around -90.0
+    //OR we wat until we sense a change from heading
+    delay(3000);
+    // while (fabs(heading_after_90 - gyroscope.getHeading()) < 5) {
+    //     delay(5000);
+    // }
+
+    //QUESTION - is it within 10 seconds or AFTER 10 seconds?
+    float new_head = gyroscope.getHeading();
+    Serial.println(new_head);
+    if (new_head < 0) {
+        // turned in direction of og 90* (CW)
+        rotate(rotation_controller, new_head);
+
+    } else {
+        rotate(rotation_controller, -new_head);
+    }
+    Serial.println(gyroscope.getHeading());
+
+    
 }
 
-/*
-void lidarWallTask() {
-    delay(1000);
-    int dist = collectiveLidars.readFront() - 100;
-    static long unsigned long prev = 0;
+void turning2(void) {
+    gyroscope.reset();
+
+    rotate(rotation_controller, -90.0f, false);
+
+    unsigned long wait_start = millis();
+    while (millis() - wait_start <= 5000) {
+        gyroscope.update();
+        delay(5);
+    }
+    
+    rotate(rotation_controller, -90.0f, false);
+}
+
+
+void driving_and_stopping(void) {
+    mm::PIDController lidar_controller(40.0, 0.3, 0.15);
+
+    const float target = 100.0f; // mm from wall
+    lidar_controller.setTarget(target);
+    heading_controller.setTarget(0.0f);
+
+    unsigned long prev_time = micros();
+
+    bool iter = true;
 
     while (true) {
         unsigned long now = micros();
-        if (now - prev >= MILLISECONDS_TO_MICROSECONDS(10)) {
-            prev = now;
-            lidar_controller.updateLidarWall(0.01f, dist);
+        float dt = (now - prev_time) * 1e-6f;
+        prev_time = now;
+
+        float distance_error = (float)collectiveLidars.readFront() - target; 
+        int16_t forward_output = lidar_controller.compute_output(distance_error / 16.0f, dt, -80, 80);
+
+        gyroscope.update();
+        float heading_error = 0.0f - gyroscope.getHeading();
+        int16_t heading_output = heading_controller.compute_output(heading_error, dt, -40, 40);
+
+        int16_t left_output = -forward_output + heading_output;
+        int16_t right_output = forward_output + heading_output;
+        left_output = constrain(left_output, -80, 80);
+        right_output = constrain(right_output, -80, 80);
+
+        
+        if (iter) {
+            right_motor.setPWM(right_output);
+            left_motor.setPWM(left_output);
+        } else {
+            left_motor.setPWM(left_output);
+            right_motor.setPWM(right_output);
         }
-        dist = collectiveLidars.readFront() - 100;
+
+        iter = !iter;
     }
 }
-*/
+
+// usage should be:
+// chaining("lffrlrfr");       or any order of movements, should receive 8 movements
+void chaining(char *movement) {
+    while (*movement != '\0') {
+        if (*movement == 'f') {
+            driveStraight(position_controller, heading_controller, 180);
+        } else if (*movement == 'r') {
+            rotate(rotation_controller, -90);
+        } else if (*movement == 'l') {
+            rotate(rotation_controller, 90);
+        } else {
+            Serial.println("BAD INSTRUCTION!!!");
+        }
+
+        movement++;
+    }
+}
+
 
 void loop() {
-    for (int i = 0; i < 4; i++) {
-        delay(500);
-        rotate(rotation_controller, 90.0f);
-    }
+    // turning();
+    // delay(5000);
 
-    for (int i = 0; i < 4; i++) {
-        delay(500);
-        rotate(rotation_controller, -90.0f);
-    }
-
-    for (int i = 0; i < 3; i++) {
-        delay(500);
-        rotate(rotation_controller, 120.0f);
-    }
-
-    for (int i = 0; i < 3; i++) {
-        delay(500);
-        rotate(rotation_controller, -120.0f);
-    }
+    turning2();
+    delay(5000);
 }
-
-    // lidarWallTask();
-
-
-
-
-    // if (initOkay) {
-    //     int distance = lidar3.read();
-    //     if (lidar3.timedOut()) {
-    //         Serial.println("TIMEOUT");
-    //     } else {
-    //         Serial.println(distance);
-    //     }
-    // } else {
-    //     Serial.println("NA");
-    // }
-    // delay(100);
