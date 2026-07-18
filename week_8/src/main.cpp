@@ -25,6 +25,7 @@ mm::Gyroscope gyroscope;
 mm::PIDController rotation_controller(5.0, 0.25, 0.5);
 mm::PIDController position_controller(40.0, 0.3, 0.15);
 mm::PIDController heading_controller(10.0, 0.0, 0.5);
+mm::PIDController lidar_controller(40.0, 0.3, 0.15);
 mm::LidarSystem collectiveLidars;
 mm::OLED oled;
 
@@ -48,53 +49,18 @@ void setup() {
     Serial.println("Began LIDARs!");
 }
 
-
-void turning() {
-    // float og_heading = gyroscope.getHeading();
-    //turn 90*
-    rotate(rotation_controller, -90.0f);
-    
-    //wait an allotted time for demonstrator to turn
-    // float og_heading = gyroscope.getHeading(); // gonna be around -90.0
-    //OR we wat until we sense a change from heading
-    delay(3000);
-    // while (fabs(heading_after_90 - gyroscope.getHeading()) < 5) {
-    //     delay(5000);
-    // }
-
-    //QUESTION - is it within 10 seconds or AFTER 10 seconds?
-    float new_head = gyroscope.getHeading();
-    Serial.println(new_head);
-    if (new_head < 0) {
-        // turned in direction of og 90* (CW)
-        rotate(rotation_controller, new_head);
-
-    } else {
-        rotate(rotation_controller, -new_head);
-    }
-    Serial.println(gyroscope.getHeading());
-
-    
-}
-
-void turning2(void) {
+void turning(void) {
     gyroscope.reset();
 
     rotate(rotation_controller, -90.0f, false);
 
-    unsigned long wait_start = millis();
-    while (millis() - wait_start <= 5000) {
-        gyroscope.update();
-        delay(5);
-    }
-    
+    mm::delayWhileUpdating(5000);
+
     rotate(rotation_controller, -90.0f, false);
 }
 
 
 void driving_and_stopping(void) {
-    mm::PIDController lidar_controller(40.0, 0.3, 0.15);
-
     const float target = 100.0f; // mm from wall
     lidar_controller.setTarget(target);
     heading_controller.setTarget(0.0f);
@@ -108,7 +74,7 @@ void driving_and_stopping(void) {
         float dt = (now - prev_time) * 1e-6f;
         prev_time = now;
 
-        float distance_error = (float)collectiveLidars.readFront() - target; 
+        float distance_error = (float)collectiveLidars.readFront() - target;
         int16_t forward_output = lidar_controller.compute_output(distance_error / 16.0f, dt, -80, 80);
 
         gyroscope.update();
@@ -120,7 +86,7 @@ void driving_and_stopping(void) {
         left_output = constrain(left_output, -80, 80);
         right_output = constrain(right_output, -80, 80);
 
-        
+
         if (iter) {
             right_motor.setPWM(right_output);
             left_motor.setPWM(left_output);
@@ -153,9 +119,6 @@ void chaining(char *movement) {
 
 
 void loop() {
-    // turning();
-    // delay(5000);
-
-    turning2();
-    delay(5000);
+    turning();
+    mm::delayWhileUpdating(5000);
 }

@@ -1,8 +1,24 @@
 #pragma once
 
+#include "Gyroscope.hpp"
+
+
 #define MILLISECONDS_TO_MICROSECONDS(X) ((unsigned long)(X) * 1000UL)
 
+extern mm::Gyroscope gyroscope;
+
 namespace mm {
+
+/*
+    Same functionality as delay(), but it regularly updates the gyroscope too.
+    Use this instead of delay() everywhere once the gyroscope is initialised.
+*/
+void delayWhileUpdating(unsigned long duration_ms) {
+    unsigned long start = millis();
+    while (millis() - start < duration_ms) {
+        gyroscope.update();
+    }
+}
 
 /*
     Ringbuffer data structure, for use in moving average filters and other stuff.
@@ -70,7 +86,7 @@ extern mm::LidarSystem collectiveLidars;
 
 void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gyroscope = true) {
     rotation_controller.setTarget(degrees);
-    
+
     if (reset_gyroscope) {
         gyroscope.reset();
     }

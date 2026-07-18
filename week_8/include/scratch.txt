@@ -225,3 +225,36 @@ mm::PIDController rotation_controller(mm::PIDMode::ROTATION, left_motor,
 
 // for position, original values were 30.0, 2.0, 0
 // for rotation original values were 15.0, 3.2, 0
+
+
+
+
+
+
+void turning() {
+    // float og_heading = gyroscope.getHeading();
+    //turn 90*
+    rotate(rotation_controller, -90.0f);
+
+    //wait an allotted time for demonstrator to turn
+    // float og_heading = gyroscope.getHeading(); // gonna be around -90.0
+    //OR we wat until we sense a change from heading
+    delay(3000);
+    // while (fabs(heading_after_90 - gyroscope.getHeading()) < 5) {
+    //     delay(5000);
+    // }
+
+    //QUESTION - is it within 10 seconds or AFTER 10 seconds?
+    float new_head = gyroscope.getHeading();
+    Serial.println(new_head);
+    if (new_head < 0) {
+        // turned in direction of og 90* (CW)
+        rotate(rotation_controller, new_head);
+
+    } else {
+        rotate(rotation_controller, -new_head);
+    }
+    Serial.println(gyroscope.getHeading());
+
+
+}
