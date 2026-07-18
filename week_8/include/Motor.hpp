@@ -40,8 +40,10 @@ public:
         pinMode(encoder2_pin, INPUT_PULLUP);
 
         if (side == MotorSide::LEFT) {
+            instance_left = this;
             attachInterrupt(digitalPinToInterrupt(encoder1_pin), readEncoderLeftISR, RISING);
         } else if (side == MotorSide::RIGHT) {
+            instance_right = this;
             attachInterrupt(digitalPinToInterrupt(encoder1_pin), readEncoderRightISR, RISING);
         }
     }

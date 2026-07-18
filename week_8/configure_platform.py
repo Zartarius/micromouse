@@ -5,7 +5,7 @@ Import("env")
 system = platform.system()
 
 if system in {"Darwin", "Linux"}:
-    env.Replace(BOARD="nanoatmega328new")
+    env.Replace(BOARD="nanoatmega328")
     env.Replace(UPLOAD_SPEED="115200")
 
 elif system in {"Windows"}:

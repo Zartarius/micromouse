@@ -22,7 +22,9 @@ static constexpr uint8_t PROGMEM RIGHT_MOTOR_ENC_B_PIN = 8;
 mm::Motor left_motor(mm::MotorSide::LEFT, LEFT_MOTOR_PWM_PIN, LEFT_MOTOR_DIR_PIN, LEFT_MOTOR_ENC_A_PIN, LEFT_MOTOR_ENC_B_PIN);
 mm::Motor right_motor(mm::MotorSide::RIGHT, RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR_PIN, RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN);
 mm::Gyroscope gyroscope;
-mm::PIDController rotation_controller(7.0, 0.1, 0.5);
+mm::PIDController rotation_controller(5.0, 0.25, 0.5);
+mm::PIDController position_controller(40.0, 0.3, 0.15);
+mm::PIDController heading_controller(3.0, 0.0, 0.3);
 mm::LidarSystem collectiveLidars;
 mm::OLED oled;
 
@@ -67,6 +69,7 @@ void setup() {
     Serial.println("Began Gyroscope!");
     oled.begin();
     Serial.println("Began OLED!");
+    oled.print("Testing OLED: %d %d %d", 1, 2, 3);
 
     collectiveLidars.initAll();
     // single lidar class
@@ -108,6 +111,26 @@ void lidarWallTask() {
 */
 
 void loop() {
+    for (int i = 0; i < 4; i++) {
+        delay(500);
+        rotate(rotation_controller, 90.0f);
+    }
+
+    for (int i = 0; i < 4; i++) {
+        delay(500);
+        rotate(rotation_controller, -90.0f);
+    }
+
+    for (int i = 0; i < 3; i++) {
+        delay(500);
+        rotate(rotation_controller, 120.0f);
+    }
+
+    for (int i = 0; i < 3; i++) {
+        delay(500);
+        rotate(rotation_controller, -120.0f);
+    }
+}
 
     // lidarWallTask();
 
@@ -125,5 +148,3 @@ void loop() {
     //     Serial.println("NA");
     // }
     // delay(100);
-
-}

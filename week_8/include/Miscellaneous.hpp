@@ -51,3 +51,112 @@ public:
 
 
 }
+
+
+
+
+
+/*
+    FUNCTIONS/CLASSES TO MOVE LATER
+*/
+
+#include "PIDController.hpp"
+#include "Gyroscope.hpp"
+#include "LidarSystem.hpp"
+
+extern mm::Motor left_motor, right_motor;
+extern mm::Gyroscope gyroscope;
+extern mm::LidarSystem collectiveLidars;
+
+void rotate(mm::PIDController& rotation_controller, float degrees) {
+    rotation_controller.setTarget(degrees);
+    gyroscope.reset();
+
+    unsigned long start_time = micros();
+    unsigned long prev_time = start_time;
+
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(3000);
+
+    float error = degrees - gyroscope.getHeading();
+    float prev_error = error;
+    float error_derivative = 0.0f;
+
+    while ((fabs(error) > 2.5f || fabs(error_derivative) > 15.0f)
+            && micros() - start_time < timeout) {
+
+        unsigned long now = micros();
+        float dt = (now - prev_time) * 1e-6f;
+        prev_time = now;
+
+        gyroscope.update();
+        error = degrees - gyroscope.getHeading();
+
+        if (dt > 0.0f) {
+            error_derivative = (error - prev_error) / dt;
+        }
+        prev_error = error;
+
+        int16_t output = rotation_controller.compute_output(error, dt, -80, 80);
+        left_motor.setPWM(output);
+        right_motor.setPWM(output);
+    }
+
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
+}
+
+
+// distance must be in mm
+void driveStraight(mm::PIDController& position_controller,
+                mm::PIDController& heading_controller,
+                float distance) {
+    float wheel_turns = distance / (2.0f * PI * 16.0f);
+    position_controller.setTarget(wheel_turns);
+
+    gyroscope.reset();
+    heading_controller.setTarget(0.0f);
+
+    unsigned long start_time = micros();
+    unsigned long prev_time = start_time;
+
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(5000);
+
+    float pos_error = wheel_turns - ((-left_motor.getRotation() + right_motor.getRotation()) / 2.0f);
+    float prev_pos_error = pos_error;
+    float pos_derivative = 0.0f;
+
+    while ((fabs(pos_error) > 0.7f || fabs(pos_derivative) > 2.5f) &&
+            micros() - start_time < timeout) {
+
+        unsigned long now = micros();
+        float dt = (now - prev_time) * 1e-6f;
+        prev_time = now;
+
+        pos_error = wheel_turns - ((-left_motor.getRotation() + right_motor.getRotation()) / 2.0f);
+
+        if (dt > 0.0f) {
+            pos_derivative = (pos_error - prev_pos_error) / dt;
+        }
+        prev_pos_error = pos_error;
+
+        int16_t forward_output = position_controller.compute_output(pos_error, dt, -80, 80);
+
+        gyroscope.update();
+        float heading_error = 0.0f - gyroscope.getHeading();
+        int16_t heading_output = heading_controller.compute_output(heading_error, dt, -40, 40);
+        // if (fabs(heading_error) < 2.5f) {
+        //     heading_output = 0.0f;
+        // }
+
+        int16_t left_output = -forward_output + heading_output; // maybe do - heading_output if this doesn't work
+        int16_t right_output = forward_output + heading_output;
+        left_output = constrain(left_output, -80, 80);
+        right_output = constrain(right_output, -80, 80);
+
+        left_motor.setPWM(left_output);
+        right_motor.setPWM(right_output);
+    }
+
+    left_motor.setPWM(0);
+    right_motor.setPWM(0);
+}

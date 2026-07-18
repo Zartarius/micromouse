@@ -18,14 +18,18 @@ public:
     }
 
     /*
-    Computes a pid output given the state and parameters
+    Computes a pid output given the state and parameters. Output is Bounded in [lo, hi].
     */
-    float compute_output(float error, float dt) {
+    int16_t compute_output(float error, float dt, int16_t lo, int16_t hi) {
         state.integral += error * dt;
         state.integral = constrain(state.integral, -state.integral_limit, state.integral_limit);
         float derivative = (error - state.prev_error) / dt;
         state.prev_error = error;
-        return (kp * error) + (ki * state.integral) + (kd * derivative);
+
+        float output =  (kp * error) + (ki * state.integral) + (kd * derivative);
+        output = constrain(output, static_cast<float>(lo), static_cast<float>(hi));
+
+        return static_cast<int16_t>(output);
     }
 
     void reset(void) {
