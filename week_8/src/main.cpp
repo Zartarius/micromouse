@@ -62,6 +62,7 @@ bool initOkay = false;
 void setup() {
     Serial.begin(9600);
     Serial.println("Began Serial!");
+    // Serial.println(BUILD_TIMESTAMP);
     Wire.begin();
     Serial.println("Began Wire!");
     delay(500); // Give time for gyroscope to be still
@@ -72,6 +73,7 @@ void setup() {
     oled.print("Testing OLED: %d %d %d", 1, 2, 3);
 
     collectiveLidars.initAll();
+    Serial.println("Began LIDARs!");
     // single lidar class
     // Serial.println("Scanning...");
     // initOkay = lidar1.init();

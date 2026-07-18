@@ -6,7 +6,7 @@ namespace mm {
 
 class PIDController {
 public:
-    PIDController(float kp, float ki, float kd) : kp{kp}, ki{ki}, kd{} {}
+    PIDController(float kp, float ki, float kd) : kp{kp}, ki{ki}, kd{kd} {}
 
     /*
     Sets the target setpoint, automatically resets controller.
