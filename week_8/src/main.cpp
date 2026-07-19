@@ -1,36 +1,6 @@
 #include <Arduino.h>
-#include "Motor.hpp"
-#include "PIDController.hpp"
+#include "Robot.hpp"
 #include "Miscellaneous.hpp"
-#include "Gyroscope.hpp"
-#include "LidarSystem.hpp"
-#include "OLED.hpp"
-
-/*
-    We assume MOT1 in "Micromouse_Kit_Information.pdf" to refer to the left motor,
-    and MOT2 to refer to the right motor.
-*/
-static constexpr uint8_t PROGMEM LEFT_MOTOR_PWM_PIN = 11;
-static constexpr uint8_t PROGMEM LEFT_MOTOR_DIR_PIN = 12;
-static constexpr uint8_t PROGMEM RIGHT_MOTOR_PWM_PIN = 9;
-static constexpr uint8_t PROGMEM RIGHT_MOTOR_DIR_PIN = 10;
-static constexpr uint8_t PROGMEM LEFT_MOTOR_ENC_A_PIN = 2;
-static constexpr uint8_t PROGMEM LEFT_MOTOR_ENC_B_PIN = 7;
-static constexpr uint8_t PROGMEM RIGHT_MOTOR_ENC_A_PIN = 3;
-static constexpr uint8_t PROGMEM RIGHT_MOTOR_ENC_B_PIN = 8;
-
-mm::Motor left_motor(mm::MotorSide::LEFT, LEFT_MOTOR_PWM_PIN, LEFT_MOTOR_DIR_PIN, LEFT_MOTOR_ENC_A_PIN, LEFT_MOTOR_ENC_B_PIN);
-mm::Motor right_motor(mm::MotorSide::RIGHT, RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR_PIN, RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN);
-mm::Gyroscope gyroscope;
-mm::PIDController rotation_controller(5.0, 0.25, 0.5);
-mm::PIDController position_controller(40.0, 0.3, 0.15);
-mm::PIDController heading_controller(10.0, 0.0, 0.5);
-mm::PIDController lidar_controller(40.0, 0.3, 0.15);
-mm::LidarSystem collectiveLidars;
-mm::OLED oled;
-
-
-bool initOkay = false;
 
 void setup() {
     Serial.begin(9600);
@@ -39,33 +9,38 @@ void setup() {
     Wire.begin();
     Serial.println("Began Wire!");
 
-    oled.begin();
+    auto& robot = ROBOT;
+    robot.oled.begin();
     Serial.println("Began OLED!");
-    oled.print("Testing OLED: %d %d %d", 1, 2, 3);
+    robot.oled.print("Testing OLED: %d %d %d", 1, 2, 3);
 
-    collectiveLidars.initAll();
+    robot.collectiveLidars.initAll();
     Serial.println("Began LIDARs!");
 
     delay(500); // Give time for gyroscope to be still
-    gyroscope.begin();
+    robot.gyroscope.begin();
     Serial.println("Began Gyroscope!");
 }
 
 void turning(void) {
-    gyroscope.reset();
+    auto& robot = ROBOT;
 
-    rotate(rotation_controller, -90.0f, false);
+    robot.gyroscope.reset();
+
+    rotate(robot.rotation_controller, -90.0f, false);
 
     mm::delayWhileUpdating(5000);
 
-    rotate(rotation_controller, -90.0f, false);
+    rotate(robot.rotation_controller, -90.0f, false);
 }
 
 
 void driving_and_stopping(void) {
+    auto& robot = ROBOT;
+
     const float target = 100.0f; // mm from wall
-    lidar_controller.setTarget(target);
-    heading_controller.setTarget(0.0f);
+    robot.lidar_controller.setTarget(target);
+    robot.heading_controller.setTarget(0.0f);
 
     unsigned long prev_time = micros();
 
@@ -76,41 +51,35 @@ void driving_and_stopping(void) {
         float dt = (now - prev_time) * 1e-6f;
         prev_time = now;
 
-        float distance_error = (float)collectiveLidars.readFront() - target;
-        int16_t forward_output = lidar_controller.compute_output(distance_error / 16.0f, dt, -80, 80);
+        float distance_error = (float)robot.collectiveLidars.readFront() - target;
+        int16_t forward_output = robot.lidar_controller.compute_output(distance_error / 16.0f, dt, -80, 80);
 
-        gyroscope.update();
-        float heading_error = 0.0f - gyroscope.getHeading();
-        int16_t heading_output = heading_controller.compute_output(heading_error, dt, -40, 40);
+        robot.gyroscope.update();
+        float heading_error = 0.0f - robot.gyroscope.getHeading();
+        int16_t heading_output = robot.heading_controller.compute_output(heading_error, dt, -40, 40);
 
         int16_t left_output = -forward_output + heading_output;
         int16_t right_output = forward_output + heading_output;
         left_output = constrain(left_output, -80, 80);
         right_output = constrain(right_output, -80, 80);
 
-
-        if (iter) {
-            right_motor.setPWM(right_output);
-            left_motor.setPWM(left_output);
-        } else {
-            left_motor.setPWM(left_output);
-            right_motor.setPWM(right_output);
-        }
-
-        iter = !iter;
+        robot.left_motor.setPWM(left_output);
+        robot.right_motor.setPWM(right_output);
     }
 }
 
 // usage should be:
 // chaining("lffrlrfr");       or any order of movements, should receive 8 movements
 void chaining(char *movement) {
+    auto& robot = ROBOT;
+
     while (*movement != '\0') {
         if (*movement == 'f') {
-            driveStraight(position_controller, heading_controller, 180);
+            driveStraight(robot.position_controller, robot.heading_controller, 180);
         } else if (*movement == 'r') {
-            rotate(rotation_controller, -90);
+            rotate(robot.rotation_controller, -90);
         } else if (*movement == 'l') {
-            rotate(rotation_controller, 90);
+            rotate(robot.rotation_controller, 90);
         } else {
             Serial.println("BAD INSTRUCTION!!!");
         }

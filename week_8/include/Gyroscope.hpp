@@ -3,7 +3,6 @@
 #include <Arduino.h>
 #include <MPU6050_light.h>
 #include "Motor.hpp"
-#include "Miscellaneous.hpp"
 
 /*
     Set this to a non-zero value if you want to use a moving average
@@ -93,3 +92,5 @@ private:
     mm::RingBuffer<float, WINDOW_SIZE> ring_buffer;
     #endif
 };
+
+}

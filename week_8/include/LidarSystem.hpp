@@ -5,21 +5,20 @@
 
 namespace mm {
 
-static constexpr uint8_t PROGMEM LIDARRIGHT_EN_PIN = A1;
-static constexpr uint8_t PROGMEM LIDARFRONT_EN_PIN = A2;
-static constexpr uint8_t PROGMEM LIDARLEFT_EN_PIN = A0;
-static constexpr uint8_t PROGMEM LIDARFRONT_ADD = 0x54;
-static constexpr uint8_t PROGMEM LIDARLEFT_ADD = 0x55;
-static constexpr uint8_t PROGMEM LIDARRIGHT_ADD = 0x56;
-
 class LidarSystem {
 public:
-    LidarSystem() = default;
+    LidarSystem(uint8_t front_en_pin, uint8_t front_addr,
+                uint8_t left_en_pin, uint8_t left_addr,
+                uint8_t right_en_pin, uint8_t right_addr)
+        : front_en_pin{front_en_pin}, front_addr{front_addr},
+          left_en_pin{left_en_pin}, left_addr{left_addr},
+          right_en_pin{right_en_pin}, right_addr{right_addr} {
+    }
 
-    void initAll() {
-        initForSingle(lidarFront, LIDARFRONT_EN_PIN, LIDARFRONT_ADD);
-        initForSingle(lidarLeft, LIDARLEFT_EN_PIN, LIDARLEFT_ADD);
-        initForSingle(lidarRight, LIDARRIGHT_EN_PIN, LIDARRIGHT_ADD);
+    void initAll(void) {
+        initForSingle(lidarFront, front_en_pin, front_addr);
+        initForSingle(lidarLeft, left_en_pin, left_addr);
+        initForSingle(lidarRight, right_en_pin, right_addr);
     }
 
     void initForSingle(VL6180X& lidar, int enablePin, uint8_t address) {
@@ -46,23 +45,23 @@ public:
     }
 
     int readFront() {
-        digitalWrite(LIDARLEFT_EN_PIN, LOW);
-        digitalWrite(LIDARRIGHT_EN_PIN, LOW);
-        digitalWrite(LIDARFRONT_EN_PIN, HIGH);
+        digitalWrite(left_en_pin, LOW);
+        digitalWrite(right_en_pin, LOW);
+        digitalWrite(front_en_pin, HIGH);
         return lidarFront.readRangeSingleMillimeters();
     }
 
     int readLeft() {
-        digitalWrite(LIDARLEFT_EN_PIN, HIGH);
-        digitalWrite(LIDARRIGHT_EN_PIN, LOW);
-        digitalWrite(LIDARFRONT_EN_PIN, LOW);
+        digitalWrite(left_en_pin, HIGH);
+        digitalWrite(right_en_pin, LOW);
+        digitalWrite(front_en_pin, LOW);
         return lidarLeft.readRangeSingleMillimeters();
     }
 
     int readRight() {
-        digitalWrite(LIDARLEFT_EN_PIN, LOW);
-        digitalWrite(LIDARRIGHT_EN_PIN, HIGH);
-        digitalWrite(LIDARFRONT_EN_PIN, LOW);
+        digitalWrite(left_en_pin, LOW);
+        digitalWrite(right_en_pin, HIGH);
+        digitalWrite(front_en_pin, LOW);
         return lidarRight.readRangeSingleMillimeters();
     }
 
@@ -71,11 +70,13 @@ public:
     }
 
 private:
+    uint8_t front_en_pin, front_addr;
+    uint8_t left_en_pin, left_addr;
+    uint8_t right_en_pin, right_addr;
+
     VL6180X lidarFront;
     VL6180X lidarLeft;
     VL6180X lidarRight;
-    // int enablePin;
-    // uint8_t address;
 };
 
 }
