@@ -4,22 +4,19 @@
 
 void setup() {
     Serial.begin(9600);
-    Serial.println("Began Serial!");
     // Serial.println(BUILD_TIMESTAMP);
     Wire.begin();
-    Serial.println("Began Wire!");
 
     auto& robot = ROBOT;
     robot.oled.begin();
-    Serial.println("Began OLED!");
     robot.oled.print("Testing OLED: %d %d %d", 1, 2, 3);
 
     robot.collectiveLidars.initAll();
-    Serial.println("Began LIDARs!");
 
     delay(500); // Give time for gyroscope to be still
     robot.gyroscope.begin();
-    Serial.println("Began Gyroscope!");
+
+    Serial.println("Setup complete!");
 }
 
 void turning(void) {
@@ -39,12 +36,10 @@ void driving_and_stopping(void) {
     auto& robot = ROBOT;
 
     const float target = 100.0f; // mm from wall
-    robot.lidar_controller.setTarget(target);
-    robot.heading_controller.setTarget(0.0f);
+    robot.position_controller.reset();
+    robot.heading_controller.reset();
 
     unsigned long prev_time = micros();
-
-    bool iter = true;
 
     while (true) {
         unsigned long now = micros();
@@ -52,7 +47,7 @@ void driving_and_stopping(void) {
         prev_time = now;
 
         float distance_error = (float)robot.collectiveLidars.readFront() - target;
-        int16_t forward_output = robot.lidar_controller.compute_output(distance_error / 16.0f, dt, -80, 80);
+        int16_t forward_output = robot.position_controller.compute_output(distance_error / 16.0f, dt, -80, 80);
 
         robot.gyroscope.update();
         float heading_error = 0.0f - robot.gyroscope.getHeading();

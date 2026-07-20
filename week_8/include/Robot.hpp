@@ -23,7 +23,6 @@ public:
     PIDController rotation_controller;
     PIDController position_controller;
     PIDController heading_controller;
-    PIDController lidar_controller;
     LidarSystem collectiveLidars;
     OLED oled;
 
@@ -48,10 +47,9 @@ private:
         left_motor(MotorSide::LEFT, LEFT_MOTOR_PWM_PIN, LEFT_MOTOR_DIR_PIN, LEFT_MOTOR_ENC_A_PIN, LEFT_MOTOR_ENC_B_PIN),
         right_motor(MotorSide::RIGHT, RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR_PIN, RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN),
         gyroscope(),
-        rotation_controller(5.0, 0.25, 0.5),
-        position_controller(40.0, 0.3, 0.15),
-        heading_controller(10.0, 0.0, 0.5),
-        lidar_controller(40.0, 0.3, 0.15),
+        rotation_controller(5.0f, 0.25f, 0.5f),
+        position_controller(40.0f, 0.3f, 0.15f),
+        heading_controller(10.0f, 0.0f, 0.5f),
         collectiveLidars(LIDARFRONT_EN_PIN, LIDARFRONT_ADD, LIDARLEFT_EN_PIN, LIDARLEFT_ADD, LIDARRIGHT_EN_PIN, LIDARRIGHT_ADD),
         oled()
     {}

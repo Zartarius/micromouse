@@ -9,15 +9,6 @@ public:
     PIDController(float kp, float ki, float kd) : kp{kp}, ki{ki}, kd{kd} {}
 
     /*
-    Sets the target setpoint, automatically resets controller.
-    Target must be in the same units as the error.
-    */
-    void setTarget(float target) {
-        reset();
-        this->target = target;
-    }
-
-    /*
     Computes a pid output given the state and parameters. Output is Bounded in [lo, hi].
     */
     int16_t compute_output(float error, float dt, int16_t lo, int16_t hi) {
@@ -48,10 +39,8 @@ private:
     };
 
     float kp, ki, kd;
-    float target = 0.0f;
 
-    PIDState state{};
-
+    PIDState state;
 };
 
 

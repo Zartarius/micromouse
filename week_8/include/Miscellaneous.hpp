@@ -82,7 +82,7 @@ public:
 void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gyroscope = true) {
     auto& robot = ROBOT;
 
-    rotation_controller.setTarget(degrees);
+    rotation_controller.reset();
 
     if (reset_gyroscope) {
         robot.gyroscope.reset();
@@ -132,10 +132,9 @@ void driveStraight(mm::PIDController& position_controller,
     robot.right_motor.setEncoderToZero();
 
     float wheel_turns = distance / 16.0f;
-    position_controller.setTarget(wheel_turns);
-
+    position_controller.reset();
+    heading_controller.reset();
     robot.gyroscope.reset();
-    heading_controller.setTarget(0.0f);
 
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
