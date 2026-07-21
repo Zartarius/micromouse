@@ -8,8 +8,8 @@ void setup() {
     Wire.begin();
 
     auto& robot = ROBOT;
-    robot.oled.begin();
-    robot.oled.print("Testing OLED: %d %d %d", 1, 2, 3);
+    // robot.oled.begin();
+    // robot.oled.print("Testing OLED: %d %d %d", 1, 2, 3);
 
     robot.collectiveLidars.initAll();
 
@@ -19,6 +19,7 @@ void setup() {
     Serial.println("Setup complete!");
 }
 
+
 void turning(void) {
     auto& robot = ROBOT;
 
@@ -26,11 +27,10 @@ void turning(void) {
 
     rotate(robot.rotation_controller, -90.0f, false);
 
-    mm::delayWhileUpdating(5000);
+    mm::delayWhileUpdating(4000);
 
     rotate(robot.rotation_controller, -90.0f, false);
 }
-
 
 void driving_and_stopping(void) {
     auto& robot = ROBOT;
@@ -70,11 +70,11 @@ void chaining(char *movement) {
 
     while (*movement != '\0') {
         if (*movement == 'f') {
-            driveStraight(robot.position_controller, robot.heading_controller, 180);
+            driveStraight(robot.position_controller, robot.heading_controller, 200.0f);
         } else if (*movement == 'r') {
-            rotate(robot.rotation_controller, -90);
+            rotate(robot.rotation_controller, -90.0f);
         } else if (*movement == 'l') {
-            rotate(robot.rotation_controller, 90);
+            rotate(robot.rotation_controller, 90.0f);
         } else {
             Serial.println("BAD INSTRUCTION!!!");
         }
@@ -85,6 +85,9 @@ void chaining(char *movement) {
 
 
 void loop() {
-    turning();
-    mm::delayWhileUpdating(5000);
+    // turning();
+    // driveStraight(ROBOT.position_controller, ROBOT.heading_controller, 1000);
+    // driving_and_stopping();
+    // mm::delayWhileUpdating(20000);
+    chaining((char *)"frfflfrf");
 }

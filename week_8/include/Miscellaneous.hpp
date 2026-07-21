@@ -79,6 +79,8 @@ public:
 #include "Gyroscope.hpp"
 #include "LidarSystem.hpp"
 
+
+// add timeout parameter
 void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gyroscope = true) {
     auto& robot = ROBOT;
 
@@ -97,7 +99,7 @@ void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gy
     float prev_error = error;
     float error_derivative = 0.0f;
 
-    while ((fabs(error) > 2.5f || fabs(error_derivative) > 15.0f)
+    while ((fabs(error) > 0.5f || fabs(error_derivative) > 15.0f)
             && micros() - start_time < timeout) {
 
         unsigned long now = micros();
@@ -113,6 +115,11 @@ void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gy
         prev_error = error;
 
         int16_t output = rotation_controller.compute_output(error, dt, -80, 80);
+
+        Serial.print("error: "); Serial.print(error);
+        Serial.print(" deriv: "); Serial.print(error_derivative);
+        Serial.print(" output: "); Serial.println(output);
+
         robot.left_motor.setPWM(output);
         robot.right_motor.setPWM(output);
     }
@@ -139,13 +146,13 @@ void driveStraight(mm::PIDController& position_controller,
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
 
-    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(3000);
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(30000);
 
     float pos_error = wheel_turns - ((-robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f);
-    // float prev_pos_error = pos_error;
-    // // float pos_derivative = 0.0f;
+    float prev_pos_error = pos_error;
+    float pos_derivative = 0.0f;
 
-    while (/*(fabs(pos_error) > 0.7f || fabs(pos_derivative) > 2.5f) &&*/
+    while ((fabs(pos_error) > 0.2f || fabs(pos_derivative) > 2.5f) &&
             micros() - start_time < timeout) {
 
         unsigned long now = micros();
@@ -154,10 +161,10 @@ void driveStraight(mm::PIDController& position_controller,
 
         pos_error = wheel_turns - ((-robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f);
 
-        // if (dt > 0.0f) {
-        //     // pos_derivative = (pos_error - prev_pos_error) / dt;
-        // }
-        // // prev_pos_error = pos_error;
+        if (dt > 0.0f) {
+            pos_derivative = (pos_error - prev_pos_error) / dt;
+        }
+        prev_pos_error = pos_error;
 
         int16_t forward_output = position_controller.compute_output(pos_error, dt, -80, 80);
 
@@ -167,8 +174,8 @@ void driveStraight(mm::PIDController& position_controller,
 
         int16_t left_output = -forward_output + heading_output; // maybe do - heading_output if this doesn't work
         int16_t right_output = forward_output + heading_output;
-        left_output = constrain(left_output, -80, 80);
-        right_output = constrain(right_output, -80, 80);
+        left_output = constrain(left_output, -100, 100);
+        right_output = constrain(right_output, -100, 100);
 
         robot.left_motor.setPWM(left_output);
         robot.right_motor.setPWM(right_output);
