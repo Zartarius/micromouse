@@ -85,9 +85,17 @@ void chaining(char *movement) {
 
 
 void loop() {
+    // auto& r = ROBOT;
+    // int left = r.collectiveLidars.readLeft();
+    // delay(1000);
+    // int right = r.collectiveLidars.readRight();
+
+    // Serial.print("Left: "); Serial.println(left);
+    // Serial.print("Right: "); Serial.println(right);
+
     // turning();
-    // driveStraight(ROBOT.position_controller, ROBOT.heading_controller, 1000);
+    driveStraight(ROBOT.position_controller, ROBOT.heading_controller, 1000);
     // driving_and_stopping();
     // mm::delayWhileUpdating(20000);
-    chaining((char *)"frfflfrf");
+    // chaining((char *)"frfflfrf");
 }

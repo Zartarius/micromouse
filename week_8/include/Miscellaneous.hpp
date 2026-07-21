@@ -79,7 +79,7 @@ public:
 #include "Gyroscope.hpp"
 #include "LidarSystem.hpp"
 
-
+static mm::PIDController wall_centering_controller(0.8f, 0.0f, 0.0f); 
 // add timeout parameter
 void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gyroscope = true) {
     auto& robot = ROBOT;
@@ -141,12 +141,14 @@ void driveStraight(mm::PIDController& position_controller,
     float wheel_turns = distance / 16.0f;
     position_controller.reset();
     heading_controller.reset();
+    wall_centering_controller.reset();
     robot.gyroscope.reset();
 
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
 
     const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(30000);
+    // const float MIN_CLEARANCE_MM = 50.0f;
 
     float pos_error = wheel_turns - ((-robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f);
     float prev_pos_error = pos_error;
@@ -169,11 +171,44 @@ void driveStraight(mm::PIDController& position_controller,
         int16_t forward_output = position_controller.compute_output(pos_error, dt, -80, 80);
 
         robot.gyroscope.update();
-        float heading_error = 0.0f - robot.gyroscope.getHeading();
-        int16_t heading_output = heading_controller.compute_output(heading_error, dt, -60, 60);
 
-        int16_t left_output = -forward_output + heading_output; // maybe do - heading_output if this doesn't work
-        int16_t right_output = forward_output + heading_output;
+        int left_dist = robot.collectiveLidars.readLeft();
+        int right_dist = robot.collectiveLidars.readRight();
+
+        Serial.print("Left: "); Serial.println(left_dist);
+        Serial.print("Right: "); Serial.println(right_dist);
+
+        int dist = 0;
+        bool right = false;
+        if (right_dist < left_dist) {
+            dist = right_dist;
+            right = true; 
+        } else  {
+            dist = left_dist;
+        }
+        // int dist = (right_dist < left_dist) ? right_dist : left_dist ;
+        int16_t heading_output;
+        bool useGyro = false;
+        if (abs(dist) < 52) {
+            float error = (right) ? (abs(dist) - 52) : (52 - abs(dist));
+            heading_output = wall_centering_controller.compute_output(error, dt, -60, 60);
+            // heading_controller.reset();
+        } else {
+            float heading_error = 0.0f - robot.gyroscope.getHeading();
+            heading_output = heading_controller.compute_output(heading_error, dt, -60, 60);
+            wall_centering_controller.reset();
+            useGyro = true;
+        }
+        int16_t left_output, right_output;
+        if (useGyro) {
+            left_output = -forward_output + heading_output;
+            right_output = forward_output + heading_output;
+        } else {
+            left_output = -forward_output - heading_output;
+            right_output = forward_output - heading_output;
+        }
+        // int16_t left_output = -forward_output + heading_output; // maybe do - heading_output if this doesn't work
+        // int16_t right_output = forward_output + heading_output;
         left_output = constrain(left_output, -100, 100);
         right_output = constrain(right_output, -100, 100);
 
