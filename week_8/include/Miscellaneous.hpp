@@ -147,7 +147,8 @@ void driveStraight(mm::PIDController& position_controller,
     unsigned long start_time = micros();
     unsigned long prev_time = start_time;
 
-    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(30000);
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(5000);
+    //was 30000 before and this made it bug out so we changed it to 5000 and it stopped pausing
     // const float MIN_CLEARANCE_MM = 50.0f;
 
     float pos_error = wheel_turns - ((-robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f);
@@ -192,7 +193,7 @@ void driveStraight(mm::PIDController& position_controller,
         if (abs(dist) < 52) {
             float error = (right) ? (abs(dist) - 52) : (52 - abs(dist));
             heading_output = wall_centering_controller.compute_output(error, dt, -60, 60);
-            // heading_controller.reset();
+            heading_controller.reset();
         } else {
             float heading_error = 0.0f - robot.gyroscope.getHeading();
             heading_output = heading_controller.compute_output(heading_error, dt, -60, 60);

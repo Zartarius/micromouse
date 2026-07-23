@@ -70,7 +70,8 @@ void chaining(char *movement) {
 
     while (*movement != '\0') {
         if (*movement == 'f') {
-            driveStraight(robot.position_controller, robot.heading_controller, 200.0f);
+            driveStraight(robot.position_controller, robot.heading_controller, 215.0f);
+            //200 before, changed to 250 to make it go straight for longer
         } else if (*movement == 'r') {
             rotate(robot.rotation_controller, -90.0f);
         } else if (*movement == 'l') {
@@ -97,5 +98,5 @@ void loop() {
     driveStraight(ROBOT.position_controller, ROBOT.heading_controller, 1000);
     // driving_and_stopping();
     // mm::delayWhileUpdating(20000);
-    // chaining((char *)"frfflfrf");
+    // chaining((char *)"flffrfl");
 }
