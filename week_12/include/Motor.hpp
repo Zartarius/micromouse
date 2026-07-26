@@ -2,8 +2,6 @@
 
 #include <Arduino.h>
 
-#include "math.h"
-
 namespace mm {
 
 static constexpr uint16_t PROGMEM COUNTS_PER_REVOLUTION = 700;
@@ -55,13 +53,21 @@ public:
         of rotation of the motor.
     */
     void setPWM(int16_t pwm) {
-        if (pwm >= 0) {
-            digitalWrite(dir_pin, HIGH);
-        } else {
-            digitalWrite(dir_pin, LOW);
+        if (this == instance_left) {
+            if (pwm >= 0) {
+                digitalWrite(dir_pin, LOW);
+            } else {
+                digitalWrite(dir_pin, HIGH);
+            }
+        } else if (this == instance_right) {
+            if (pwm >= 0) {
+                digitalWrite(dir_pin, HIGH);
+            } else {
+                digitalWrite(dir_pin, LOW);
+            }
         }
 
-        analogWrite(pwm_pin, abs(pwm));
+        analogWrite(pwm_pin, (pwm >= 0 ? pwm : -pwm));
     }
 
     /*
@@ -91,12 +97,18 @@ private:
     Called by the ISR to increment/decrement the encoder_count
     */
     void readEncoder() {
-        if (digitalRead(encoder2_pin) == HIGH) {
-            encoder_count++;
-            direction = 1;
-        } else {
-            encoder_count--;
-            direction = -1;
+        if (this == instance_left) {
+            if (digitalRead(encoder2_pin) == HIGH) {
+                encoder_count--;
+            } else {
+                encoder_count++;
+            }
+        } else if (this == instance_right) {
+            if (digitalRead(encoder2_pin) == HIGH) {
+                encoder_count++;
+            } else {
+                encoder_count--;
+            }
         }
     }
 
@@ -123,7 +135,6 @@ private:
     const uint8_t pwm_pin, dir_pin;
     const uint8_t encoder1_pin, encoder2_pin;
 
-    volatile int8_t direction = 0;
     volatile long encoder_count = 0;
 
     static Motor* instance_left;

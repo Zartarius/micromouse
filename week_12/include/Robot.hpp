@@ -23,8 +23,9 @@ public:
     PIDController rotation_controller;
     PIDController position_controller;
     PIDController heading_controller;
-    LidarSystem collectiveLidars;
+    LidarSystem lidar_system;
     OLED oled;
+    const float wheel_radius_mm;
 
 private:
     inline static constexpr uint8_t PROGMEM LEFT_MOTOR_PWM_PIN = 11;
@@ -50,8 +51,9 @@ private:
         rotation_controller(6.0f, 0.35f, 0.5f),
         position_controller(55.0f, 0.3f, 0.15f),
         heading_controller(10.0f, 0.0f, 0.5f),
-        collectiveLidars(LIDARFRONT_EN_PIN, LIDARFRONT_ADD, LIDARLEFT_EN_PIN, LIDARLEFT_ADD, LIDARRIGHT_EN_PIN, LIDARRIGHT_ADD),
-        oled()
+        lidar_system(LIDARFRONT_EN_PIN, LIDARFRONT_ADD, LIDARLEFT_EN_PIN, LIDARLEFT_ADD, LIDARRIGHT_EN_PIN, LIDARRIGHT_ADD),
+        oled(),
+        wheel_radius_mm(16.0f)
     {}
 
     Robot(const Robot&) = delete;
