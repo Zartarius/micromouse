@@ -1,0 +1,63 @@
+//
+// !!! WARNING !!! AUTO-GENERATED FILE!
+// PLEASE DO NOT MODIFY IT AND USE "platformio.ini":
+// https://docs.platformio.org/page/projectconf/section_env_build.html#build-flags
+//
+{
+    "configurations": [
+        {
+            "name": "PlatformIO",
+            "includePath": [
+                "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/include",
+                "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/src",
+                "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/.pio/libdeps/nanoatmega328/U8g2/src",
+                "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/.pio/libdeps/nanoatmega328/VL6180X",
+                "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/.pio/libdeps/nanoatmega328/MPU6050_light/src",
+                "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/cores/arduino",
+                "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
+                "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/include",
+                    "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/src",
+                    "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/.pio/libdeps/nanoatmega328/U8g2/src",
+                    "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/SPI/src",
+                    "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/.pio/libdeps/nanoatmega328/VL6180X",
+                    "/Users/zaryabayaz/Documents/MTRN3100/mtrn3100-micromouse/week_8/.pio/libdeps/nanoatmega328/MPU6050_light/src",
+                    "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/Wire/src",
+                    "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/cores/arduino",
+                    "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/variants/eightanaloginputs",
+                    "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/EEPROM/src",
+                    "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/HID/src",
+                    "/Users/zaryabayaz/.platformio/packages/framework-arduino-avr/libraries/SoftwareSerial/src",
+                    ""
+                ]
+            },
+            "defines": [
+                "BUILD_TIMESTAMP=\"2026-07-26 10:28:41\"",
+                "PLATFORMIO=60119",
+                "ARDUINO_AVR_NANO",
+                "F_CPU=16000000L",
+                "ARDUINO_ARCH_AVR",
+                "ARDUINO=10808",
+                "__AVR_ATmega328P__",
+                ""
+            ],
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++17",
+            "compilerPath": "/Users/zaryabayaz/.platformio/packages/toolchain-atmelavr/bin/avr-gcc",
+            "compilerArgs": [
+                "-mmcu=atmega328p",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}
