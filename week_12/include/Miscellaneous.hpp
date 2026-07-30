@@ -12,7 +12,7 @@ namespace mm {
     Use this instead of delay() everywhere once the gyroscope is initialised.
 */
 void delayWhileUpdating(unsigned long duration_ms) {
-    auto& robot = ROBOT;
+    auto& robot = GET_ROBOT();
 
     unsigned long start = millis();
     while (millis() - start < duration_ms) {
@@ -63,6 +63,17 @@ public:
     size_t buffer_tail = 0;
     size_t count = 0;
 };
+
+// Returns true if str[:n] == ref[:]
+bool str_eq(const char *str, const char *ref, int n) {
+    for (int i = 0; i < n; i++) {
+        if (str[i] != ref[i]) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 
 }

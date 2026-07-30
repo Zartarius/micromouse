@@ -6,7 +6,7 @@
 #include "LidarSystem.hpp"
 #include "OLED.hpp"
 
-#define ROBOT (mm::Robot::get())
+#define GET_ROBOT() (mm::Robot::get())
 
 namespace mm {
 
@@ -26,6 +26,7 @@ public:
     LidarSystem lidar_system;
     OLED oled;
     const float wheel_radius_mm;
+    const float track_width_mm;
 
 private:
     inline static constexpr uint8_t PROGMEM LEFT_MOTOR_PWM_PIN = 11;
@@ -53,7 +54,8 @@ private:
         heading_controller(10.0f, 0.0f, 0.5f),
         lidar_system(LIDARFRONT_EN_PIN, LIDARFRONT_ADD, LIDARLEFT_EN_PIN, LIDARLEFT_ADD, LIDARRIGHT_EN_PIN, LIDARRIGHT_ADD),
         oled(),
-        wheel_radius_mm(16.0f)
+        wheel_radius_mm(16.0f),
+        track_width_mm(76.0f)
     {}
 
     Robot(const Robot&) = delete;

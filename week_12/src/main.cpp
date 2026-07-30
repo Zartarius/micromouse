@@ -8,7 +8,7 @@ void setup() {
     // Serial.println(BUILD_TIMESTAMP);
     Wire.begin();
 
-    auto& robot = ROBOT;
+    auto& robot = GET_ROBOT();
     robot.oled.begin();
     // robot.oled.print(0, 0, "Testing OLED: %d", 1);
 

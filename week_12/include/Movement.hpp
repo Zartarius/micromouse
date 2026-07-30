@@ -8,8 +8,15 @@ static mm::PIDController wall_centering_controller(0.8f, 0.0f, 0.0f);
 
 namespace mm {
 
+void robot_stop(void) {
+    auto& robot = GET_ROBOT();
+
+    robot.left_motor.setPWM(0);
+    robot.right_motor.setPWM(0);
+}
+
 void robot_rotate(const float degrees, const unsigned long timeout_ms) {
-    auto& robot = ROBOT;
+    auto& robot = GET_ROBOT();
 
     robot.rotation_controller.reset();
     robot.gyroscope.reset();
@@ -48,7 +55,7 @@ void robot_rotate(const float degrees, const unsigned long timeout_ms) {
 
 
 void robot_drive_straight(const float distance, const unsigned long timeout_ms) {
-    auto& robot = ROBOT;
+    auto& robot = GET_ROBOT();
 
     robot.left_motor.setEncoderToZero();
     robot.right_motor.setEncoderToZero();
@@ -97,8 +104,8 @@ void robot_drive_straight(const float distance, const unsigned long timeout_ms) 
 
 
 // Note that the distance argument is still technically just referring to displacement
-void robot_drive_straight_with_lidars(const float distance, const unsigned long timeout_ms) {
-    auto& robot = ROBOT;
+void robot_drive_straight_with_lidars(const float distance, const unsigned long timeout_ms, bool stop_at_end = true) {
+    auto& robot = GET_ROBOT();
 
     robot.left_motor.setEncoderToZero();
     robot.right_motor.setEncoderToZero();
@@ -157,6 +164,110 @@ void robot_drive_straight_with_lidars(const float distance, const unsigned long 
         int16_t right_output = constrain(forward_output + heading_output, -100, 100);
         robot.left_motor.setPWM(left_output);
         robot.right_motor.setPWM(right_output);
+    }
+
+    if (stop_at_end) {
+        robot.left_motor.setPWM(0);
+        robot.right_motor.setPWM(0);
+    }
+}
+
+void robot_turn(const float degrees, const float radius_mm, const unsigned long timeout_ms) {
+    auto& robot = GET_ROBOT();
+
+    robot.left_motor.setEncoderToZero();
+    robot.right_motor.setEncoderToZero();
+    robot.gyroscope.reset();
+
+    const float half_track_width = robot.track_width_mm / 2.0f;
+
+    // left wheel should travel 2π(half_track_width + r)
+    // right wheel should travel 2π(half_track_width - r) if degrees >= 0, and vice versa if degrees < 0
+    const float left_to_right_ratio = (degrees >= 0.0f) ?
+            (radius_mm - half_track_width) / (radius_mm + half_track_width) :
+            (radius_mm + half_track_width) / (radius_mm - half_track_width);
+
+    const int16_t left_speed = 80;
+    const int16_t right_speed = static_cast<int16_t>(static_cast<float>(left_speed) / left_to_right_ratio);
+
+    unsigned long start_time = micros();
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(timeout_ms);
+
+    bool turn_complete = false;
+
+    while (!turn_complete && micros() - start_time < timeout) {
+        robot.gyroscope.update();
+
+        robot.left_motor.setPWM(left_speed);
+        robot.right_motor.setPWM(right_speed);
+
+        turn_complete = (degrees >= 0.0f) ? (robot.gyroscope.getHeading() >= degrees)
+                                           : (robot.gyroscope.getHeading() <= degrees);
+    }
+}
+
+
+void optimised_chaining(const char *movement) {
+    auto& robot = GET_ROBOT();
+
+    constexpr float CELL = 180.0f;
+    constexpr float HALF_CELL = CELL / 2.0f;
+    constexpr float TURN_RADIUS = HALF_CELL;
+
+    const auto& count_forwards = [](const char *p) {
+        int n = 0;
+        while (*p == 'f') {
+            n++;
+            p++;
+        }
+        return n;
+    };
+
+    int i = 0;
+
+    while (movement[i] != '\0') {
+        // Ideally should never get here
+        if (movement[i] == 'l' || movement[i] == 'r') {
+            robot_rotate(movement[i] == 'l' ? 90.0f : -90.0f, 3000);
+            i++;
+            continue;
+        }
+
+        int num_f = count_forwards(movement + i);
+
+        if (movement[i + num_f] != 'l' && movement[i + num_f] != 'r') {
+            // String ends
+            robot_drive_straight_with_lidars((float) num_f * CELL, 15000);
+            break;
+        }
+
+        robot_drive_straight_with_lidars(((float) num_f - 1.0f) * CELL + HALF_CELL, 15000);
+        i += (num_f - 1);
+
+        // 90º turn left
+        if (str_eq(&movement[i], "flf", 3)) {
+            robot_turn(90.0f, TURN_RADIUS, 5000);
+            i += 3;
+        } else if (str_eq(&movement[i], "frf", 3)) {
+            robot_turn(-90.0f, TURN_RADIUS, 5000);
+            i += 3;
+        } else if (str_eq(&movement[i], "flflf", 5)) {
+            robot_turn(180.0f, TURN_RADIUS, 10000);
+            i += 5;
+        } else if (str_eq(&movement[i], "frfrf", 5)) {
+            robot_turn(-180.0f, TURN_RADIUS, 10000);
+            i += 5;
+        } else {
+            robot.oled.print(0, 0, "wtf");
+            while (true) ;
+        }
+
+        robot.left_motor.setEncoderToZero();
+        robot.right_motor.setEncoderToZero();
+        while ((robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f < (HALF_CELL / robot.wheel_radius_mm)) {
+            robot.left_motor.setPWM(60);
+            robot.right_motor.setPWM(60);
+        }
     }
 
     robot.left_motor.setPWM(0);
