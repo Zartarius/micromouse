@@ -4,8 +4,6 @@
 #include "Miscellaneous.hpp"
 #include "PIDController.hpp"
 
-static mm::PIDController wall_centering_controller(0.8f, 0.0f, 0.0f);
-
 namespace mm {
 
 void robot_stop(void) {
@@ -112,7 +110,7 @@ void robot_drive_straight_with_lidars(const float distance, const unsigned long 
     robot.position_controller.reset();
     robot.heading_controller.reset();
     robot.gyroscope.reset();
-    mm::PIDController wall_centering_controller(4.0f, 0.0f, 0.0f);
+    mm::PIDController wall_centering_controller(1.2f, 0.0f, 0.05f);
 
     const float turn_radians = distance / robot.wheel_radius_mm;
     unsigned long start_time = micros();
@@ -124,6 +122,9 @@ void robot_drive_straight_with_lidars(const float distance, const unsigned long 
     float pos_derivative = 0.0f;
 
     while ((fabs(pos_error) > 0.2f || fabs(pos_derivative) > 2.5f) && micros() - start_time < timeout) {
+        robot.gyroscope.update();
+        robot.lidar_system.update();
+
         unsigned long now = micros();
         float dt = (now - prev_time) * 1e-6f;
         prev_time = now;
@@ -134,7 +135,7 @@ void robot_drive_straight_with_lidars(const float distance, const unsigned long 
         }
         prev_pos_error = pos_error;
 
-        int16_t forward_output = robot.position_controller.compute_output(pos_error, dt, -80, 80);
+        int16_t forward_output = robot.position_controller.compute_output(pos_error, dt, -100, 100);
 
         float left_dist = robot.lidar_system.readLeft();
         float right_dist = robot.lidar_system.readRight();
@@ -156,12 +157,12 @@ void robot_drive_straight_with_lidars(const float distance, const unsigned long 
             wall_centering_controller.reset();
         }
 
-        robot.gyroscope.update();
+
         float heading_error = heading_target - robot.gyroscope.getHeading();
         int16_t heading_output = robot.heading_controller.compute_output(heading_error, dt, -60, 60);
 
-        int16_t left_output  = constrain(forward_output - heading_output, -100, 100);
-        int16_t right_output = constrain(forward_output + heading_output, -100, 100);
+        int16_t left_output  = constrain(forward_output - heading_output, -140, 140);
+        int16_t right_output = constrain(forward_output + heading_output, -140, 140);
         robot.left_motor.setPWM(left_output);
         robot.right_motor.setPWM(right_output);
     }
@@ -181,28 +182,32 @@ void robot_turn(const float degrees, const float radius_mm, const unsigned long 
 
     const float half_track_width = robot.track_width_mm / 2.0f;
 
-    // left wheel should travel 2π(half_track_width + r)
-    // right wheel should travel 2π(half_track_width - r) if degrees >= 0, and vice versa if degrees < 0
     const float left_to_right_ratio = (degrees >= 0.0f) ?
             (radius_mm - half_track_width) / (radius_mm + half_track_width) :
             (radius_mm + half_track_width) / (radius_mm - half_track_width);
 
-    const int16_t left_speed = 80;
+    const int16_t left_speed = 60;
     const int16_t right_speed = static_cast<int16_t>(static_cast<float>(left_speed) / left_to_right_ratio);
 
     unsigned long start_time = micros();
     const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(timeout_ms);
 
+    unsigned long last_update_ms = millis();
     bool turn_complete = false;
 
     while (!turn_complete && micros() - start_time < timeout) {
-        robot.gyroscope.update();
+        unsigned long now_ms = millis();
+
+        // Only poll the gyro once a real millisecond has actually elapsed,
+        // so MPU6050_light's internal dt is never zero.
+        if (now_ms != last_update_ms) {
+            last_update_ms = now_ms;
+            robot.gyroscope.update();
+            turn_complete = (fabs(robot.gyroscope.getHeading()) >= fabs(degrees));
+        }
 
         robot.left_motor.setPWM(left_speed);
         robot.right_motor.setPWM(right_speed);
-
-        turn_complete = (degrees >= 0.0f) ? (robot.gyroscope.getHeading() >= degrees)
-                                           : (robot.gyroscope.getHeading() <= degrees);
     }
 }
 
@@ -265,8 +270,8 @@ void optimised_chaining(const char *movement) {
         robot.left_motor.setEncoderToZero();
         robot.right_motor.setEncoderToZero();
         while ((robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f < (HALF_CELL / robot.wheel_radius_mm)) {
-            robot.left_motor.setPWM(60);
-            robot.right_motor.setPWM(60);
+            robot.left_motor.setPWM(80);
+            robot.right_motor.setPWM(80);
         }
     }
 

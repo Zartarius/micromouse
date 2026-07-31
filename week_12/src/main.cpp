@@ -2,6 +2,7 @@
 #include "Maze.hpp"
 #include "Robot.hpp"
 #include "Movement.hpp"
+#include "Miscellaneous.hpp"
 
 void setup() {
     Serial.begin(9600);
@@ -10,7 +11,7 @@ void setup() {
 
     auto& robot = GET_ROBOT();
     robot.oled.begin();
-    // robot.oled.print(0, 0, "Testing OLED: %d", 1);
+    robot.oled.print(0, 0, "Testing OLED: %d", 1);
 
     robot.lidar_system.initAll();
 
@@ -23,18 +24,33 @@ void setup() {
 // usage should be:
 // chaining("lffrlrfr");       or any order of movements, should receive 8 movements
 void chaining(char *movement) {
-    while (*movement != '\0') {
-        switch (*movement) {
-            case 'f':
-                mm::robot_drive_straight(176.0f, 5000);
+    const auto& count_forwards = [](const char *p) {
+        int n = 0;
+        while (*p == 'f') {
+            n++;
+            p++;
+        }
+        return n;
+    };
+
+    int i = 0;
+    while (movement[i] != '\0') {
+        switch (movement[i]) {
+            case 'f': {
+                int n = count_forwards(&movement[i]);
+                mm::robot_drive_straight_with_lidars((float) n * 180.0f, 5000);
+                // mm::robot_drive_straight(176.0f, 5000);
+                i += n;
                 break;
-            case 'r':
+            } case 'r': {
                 mm::robot_rotate(-90.0f, 3000);
+                i++;
                 break;
-            case 'l':
+            } case 'l': {
                 mm::robot_rotate(90.0f, 3000);
+                i++;
                 break;
-            default:
+            } default:
                 while (true) ;
         }
 
@@ -47,8 +63,14 @@ void loop() {
     // auto& r = ROBOT;
 
     // mm::delayWhileUpdating(20000);
-    chaining((char *)F("fflfrflfrflffflfrfrffrflfffrfffrfrfflf"));
+    //chaining((char *)"ffrffflfffrflf");
+    // mm::robot_drive_straight(90.0f, 3000);
+    // mm::robot_turn(180.0f, 90.0f, 3000);
+    // // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
+    // mm::robot_stop();
+    chaining((char *)"rflffffrflflffrfflfrflffflffrflflfffrffrfflffflfffffl");
 
+    // mm::delayWhileUpdating(100000);
     while (true) ;
 }
 
