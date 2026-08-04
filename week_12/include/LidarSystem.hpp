@@ -57,9 +57,9 @@ public:
     // is ready, it's latched into the cache; if not, the cache keeps its
     // last value. This never blocks on I2C waiting for a conversion.
     void update(void) {
-        pollOne(lidarFront, last_front_mm, front_new_reading);
-        pollOne(lidarLeft,  last_left_mm,  left_new_reading);
-        pollOne(lidarRight, last_right_mm, right_new_reading);
+        pollOne(lidarFront, last_front_mm, front_new_reading, front_last_update_ms, front_en_pin, front_addr);
+        pollOne(lidarLeft,  last_left_mm,  left_new_reading,  left_last_update_ms,  left_en_pin,  left_addr);
+        pollOne(lidarRight, last_right_mm, right_new_reading, right_last_update_ms, right_en_pin, right_addr);
     }
 
     // Instant, non-blocking accessors — just return the last cached value.
@@ -79,19 +79,30 @@ public:
 
 private:
     static constexpr uint8_t RANGING_PERIOD_MS = 20;
+    // Sensor free-runs every RANGING_PERIOD_MS; going this long with no
+    // fresh sample means it's wedged (e.g. an I2C glitch during a hard
+    // turn desynced its continuous-ranging state), not just "between
+    // samples". Recover by power-cycling and reiniting just that sensor.
+    static constexpr unsigned long STALE_TIMEOUT_MS = 150;
 
     // Checks the sensor's interrupt status register for "new sample
     // ready" without blocking. Only if a sample is already waiting do
     // we call readRangeContinuousMillimeters(), which in that case
     // returns immediately (the data is already latched in the sensor).
-    void pollOne(VL6180X& lidar, int& cache, bool& has_reading) {
+    void pollOne(VL6180X& lidar, int& cache, bool& has_reading,
+                 unsigned long& last_update_ms, uint8_t en_pin, uint8_t addr) {
         uint8_t status = lidar.readReg(VL6180X::RESULT__INTERRUPT_STATUS_GPIO);
         uint8_t range_status = status & 0x07;
 
         if (range_status == 0x04) { // new sample ready
             cache = lidar.readRangeContinuousMillimeters();
             has_reading = true;
+            last_update_ms = millis();
             lidar.writeReg(VL6180X::SYSTEM__INTERRUPT_CLEAR, 0x07);
+        } else if (millis() - last_update_ms > STALE_TIMEOUT_MS) {
+            initForSingle(lidar, en_pin, addr);
+            lidar.startRangeContinuous(RANGING_PERIOD_MS);
+            last_update_ms = millis();
         }
         // else: no new sample yet, keep the cached value as-is
     }
@@ -111,6 +122,10 @@ private:
     bool front_new_reading = false;
     bool left_new_reading  = false;
     bool right_new_reading = false;
+
+    unsigned long front_last_update_ms = 0;
+    unsigned long left_last_update_ms  = 0;
+    unsigned long right_last_update_ms = 0;
 };
 
 }

@@ -69,12 +69,14 @@ void loop() {
     // mm::robot_turn(180.0f, 90.0f, 3000);
     // // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
     while (true) {
-        mm::robot_drive_straight_with_lidars(600.0f, 10000);
-        mm::robot_rotate(180.0f, 1000);
-        mm::robot_drive_straight_with_lidars(600.0f, 10000);
-        mm::robot_rotate(180.0f, 1000);
+        // mm::robot_drive_straight_with_lidars(600.0f, 10000);
+        GET_ROBOT().oled.clear();
+        GET_ROBOT().oled.print(0, 0, "no profile");
+        // mm::robot_drive_straight(600.0f, 15000);
+        mm::robot_drive_straight_with_lidars(600.0f, 15000);
         // mm::robot_drive_straight_with_lidars(500.0f, 10000);
         // mm::robot_rotate(90.0f, 10000);
+        break;
     }
     // chaining((char *)"rflffffrflflffrfflfrflffflffrflflfffrffrfflffflfffffl");
 
