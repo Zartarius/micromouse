@@ -51,11 +51,11 @@ private:
         gyroscope(),
         rotation_controller(6.0f, 0.35f, 0.5f),
         position_controller(55.0f, 0.3f, 0.15f),
-        heading_controller(10.0f, 0.0f, 0.5f),
+        heading_controller(15.0f, 0.0f, 0.5f),
         lidar_system(LIDARFRONT_EN_PIN, LIDARFRONT_ADD, LIDARLEFT_EN_PIN, LIDARLEFT_ADD, LIDARRIGHT_EN_PIN, LIDARRIGHT_ADD),
         oled(),
-        wheel_radius_mm(16.0f),
-        track_width_mm(76.0f)
+        wheel_radius_mm(15.85f),
+        track_width_mm(87.4f)
     {}
 
     Robot(const Robot&) = delete;

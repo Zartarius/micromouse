@@ -2,23 +2,23 @@
 #include "Maze.hpp"
 #include "Robot.hpp"
 #include "Movement.hpp"
-#include "Miscellaneous.hpp"
+#include "Misc.hpp"
 
 void setup() {
     Serial.begin(9600);
     // Serial.println(BUILD_TIMESTAMP);
     Wire.begin();
+    Wire.setWireTimeout(3000, true);
 
     auto& robot = GET_ROBOT();
     robot.oled.begin();
-    robot.oled.print(0, 0, "Testing OLED: %d", 1);
 
     robot.lidar_system.initAll();
 
     delay(500); // Give time for gyroscope to be still
     robot.gyroscope.begin();
 
-    Serial.println(F("Setup complete!"));
+    robot.oled.print(0, 0, "Setup complete");
 }
 
 // usage should be:
@@ -65,10 +65,18 @@ void loop() {
     // mm::delayWhileUpdating(20000);
     //chaining((char *)"ffrffflfffrflf");
     // mm::robot_drive_straight(90.0f, 3000);
+    // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
     // mm::robot_turn(180.0f, 90.0f, 3000);
     // // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
-    // mm::robot_stop();
-    chaining((char *)"rflffffrflflffrfflfrflffflffrflflfffrffrfflffflfffffl");
+    while (true) {
+        mm::robot_drive_straight_with_lidars(600.0f, 10000);
+        mm::robot_rotate(180.0f, 1000);
+        mm::robot_drive_straight_with_lidars(600.0f, 10000);
+        mm::robot_rotate(180.0f, 1000);
+        // mm::robot_drive_straight_with_lidars(500.0f, 10000);
+        // mm::robot_rotate(90.0f, 10000);
+    }
+    // chaining((char *)"rflffffrflflffrfflfrflffflffrflflfffrffrfflffflfffffl");
 
     // mm::delayWhileUpdating(100000);
     while (true) ;

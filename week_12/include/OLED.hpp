@@ -37,17 +37,18 @@ public:
         display.drawString(x, y, buf);
     }
 
+
     // x, y are in character cells, not pixels
-    void print(uint8_t x, uint8_t y, const __FlashStringHelper *fmt, ...) {
-        char buf[MAX_BUF_SIZE];
+    // void print(uint8_t x, uint8_t y, const __FlashStringHelper *fmt, ...) {
+    //     char buf[MAX_BUF_SIZE];
 
-        va_list args;
-        va_start(args, fmt);
-        vsnprintf_P(buf, MAX_BUF_SIZE, (const char *)fmt, args);
-        va_end(args);
+    //     va_list args;
+    //     va_start(args, fmt);
+    //     vsnprintf_P(buf, MAX_BUF_SIZE, (const char *)fmt, args);
+    //     va_end(args);
 
-        display.drawString(x, y, buf);
-    }
+    //     display.drawString(x, y, buf);
+    // }
 
     void clear() {
         display.clear();

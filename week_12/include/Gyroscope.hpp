@@ -15,7 +15,7 @@ public:
     */
     void begin(void) {
         if (mpu6050.begin() != 0) {
-            Serial.println(F("Could not connect to MPU6050"));
+            Serial.println("Couldn't connect to MPU6050");
             while (true);
         }
         Wire.beginTransmission(0x68);
@@ -34,9 +34,14 @@ public:
     }
 
     /*
-    Updates the IMU, call as often as possible, ideally >= 20 Hz.
+    Updates the IMU if enough time has passed since the last real update.
     */
     void update(void) {
+        unsigned long now_ms = millis();
+        if (now_ms == last_update_ms) {
+            return; // not enough time has passed for a meaningful dt
+        }
+        last_update_ms = now_ms;
         mpu6050.update();
     }
 
@@ -49,6 +54,7 @@ public:
 
 private:
     MPU6050 mpu6050{Wire};
+    unsigned long last_update_ms = 0;
 };
 
 }
