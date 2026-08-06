@@ -2,33 +2,31 @@
 
 #include <Arduino.h>
 #include <stdarg.h>
-#include "Adafruit_GFX.h"
-#include "Adafruit_SSD1306.h"
+#include <U8x8lib.h>
 
 namespace mm {
 
-static constexpr size_t MAX_BUF_SIZE = 64;
+static constexpr uint8_t PROGMEM MAX_BUF_SIZE = 32;
 
 class OLED {
 public:
-    OLED(uint8_t width = 128, uint8_t height = 64, TwoWire *wire = &Wire, int8_t reset_pin = -1)
-        : display(width, height, wire, reset_pin) {}
+    // reset_pin: U8X8_PIN_NONE if the board doesn't use one
+    explicit OLED(uint8_t reset_pin = U8X8_PIN_NONE)
+        : display(reset_pin) {}
 
-    bool begin(uint8_t i2c_addr = 0x3C) {
-        if (!display.begin(SSD1306_SWITCHCAPVCC, i2c_addr)) {
-            Serial.println("OLED: SSD1306 allocation failed");
+    bool begin() {
+        if (!display.begin()) {
+            Serial.println(F("OLED: U8x8 begin failed"));
             return false;
         }
 
-        display.clearDisplay();
-        display.setTextColor(SSD1306_WHITE);
-        display.setTextSize(1);
-        display.setCursor(0, 0);
-        display.display();
+        display.setFont(u8x8_font_chroma48medium8_r);
+        display.clear();
         return true;
     }
 
-    void print(const char *fmt, ...) {
+    // x, y are in character cells, not pixels
+    void print(uint8_t x, uint8_t y, const char *fmt, ...) {
         char buf[MAX_BUF_SIZE];
 
         va_list args;
@@ -36,26 +34,19 @@ public:
         vsnprintf(buf, MAX_BUF_SIZE, fmt, args);
         va_end(args);
 
-        display.println(buf);
-        display.display();
+        display.drawString(x, y, buf);
     }
 
     void clear() {
-        display.clearDisplay();
-        display.setCursor(0, 0);
-        display.display();
+        display.clear();
     }
 
-    void setTextSize(uint8_t size) {
-        display.setTextSize(size);
-    }
-
-    Adafruit_SSD1306& raw() {
-        return display;
-    }
+    // U8X8_SSD1306_128X64_NONAME_HW_I2C& raw() {
+    //     return display;
+    // }
 
 private:
-    Adafruit_SSD1306 display;
+    U8X8_SSD1306_128X64_NONAME_HW_I2C display;
 };
 
 }

@@ -55,11 +55,6 @@ public:
         of rotation of the motor.
     */
     void setPWM(int16_t pwm) {
-        if (abs(pwm) > 255) {
-            Serial.println("Invalid PWM value");
-            return;
-        }
-
         if (pwm >= 0) {
             digitalWrite(dir_pin, HIGH);
         } else {

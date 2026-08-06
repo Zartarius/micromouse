@@ -37,7 +37,7 @@ public:
     */
     void begin(void) {
         if (mpu6050.begin() != 0) {
-            Serial.println("Could not connect to MPU6050");
+            Serial.println(F("Could not connect to MPU6050"));
             while (true);
         }
         Wire.beginTransmission(0x68);
@@ -81,13 +81,13 @@ public:
 
             return average_heading / static_cast<float>(WINDOW_SIZE);
         #else
-            return mpu6050.getAngleZ() - bias;
+            return mpu6050.getAngleZ(); //- bias;
         #endif
     }
 
 private:
     MPU6050 mpu6050{Wire};
-    float bias{0.0f};
+    // float bias{0.0f};
     #if USE_MOVING_AVERAGE_FILTER
     mm::RingBuffer<float, WINDOW_SIZE> ring_buffer;
     #endif

@@ -76,10 +76,8 @@ public:
 */
 
 #include "PIDController.hpp"
-#include "Gyroscope.hpp"
-#include "LidarSystem.hpp"
 
-static mm::PIDController wall_centering_controller(0.8f, 0.0f, 0.0f); 
+static mm::PIDController wall_centering_controller(0.8f, 0.0f, 0.0f);
 // add timeout parameter
 void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gyroscope = true) {
     auto& robot = ROBOT;
@@ -115,10 +113,6 @@ void rotate(mm::PIDController& rotation_controller, float degrees, bool reset_gy
         prev_error = error;
 
         int16_t output = rotation_controller.compute_output(error, dt, -80, 80);
-
-        Serial.print("error: "); Serial.print(error);
-        Serial.print(" deriv: "); Serial.print(error_derivative);
-        Serial.print(" output: "); Serial.println(output);
 
         robot.left_motor.setPWM(output);
         robot.right_motor.setPWM(output);
@@ -183,7 +177,7 @@ void driveStraight(mm::PIDController& position_controller,
         bool right = false;
         if (right_dist < left_dist) {
             dist = right_dist;
-            right = true; 
+            right = true;
         } else  {
             dist = left_dist;
         }
