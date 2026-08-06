@@ -38,20 +38,24 @@ void chaining(char *movement) {
         switch (movement[i]) {
             case 'f': {
                 int n = count_forwards(&movement[i]);
-                mm::robot_drive_straight_with_lidars((float) n * 180.0f, 5000);
-                // mm::robot_drive_straight(176.0f, 5000);
+                if (n > 2) {
+                    mm::robot_drive_straight_cubic_profile((float) n * 180.0f, 5000 * n); // to change
+                } else {
+                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n); // to change
+                }
                 i += n;
                 break;
             } case 'r': {
-                mm::robot_rotate(-90.0f, 3000);
+                mm::robot_rotate(-90.0f, 1250);
                 i++;
                 break;
             } case 'l': {
-                mm::robot_rotate(90.0f, 3000);
+                mm::robot_rotate(90.0f, 1250);
                 i++;
                 break;
-            } default:
-                while (true) ;
+            } default: {
+                HALT();
+            }
         }
 
         movement++;
@@ -70,10 +74,15 @@ void loop() {
     // // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
     while (true) {
         // mm::robot_drive_straight_with_lidars(600.0f, 10000);
-        GET_ROBOT().oled.clear();
-        GET_ROBOT().oled.print(0, 0, "no profile");
+
         // mm::robot_drive_straight(600.0f, 15000);
-        mm::robot_drive_straight_with_lidars(600.0f, 15000);
+        for (int i = 0; i < 4; i++) {
+        // mm::robot_drive_straight_cubic_profile(500.0f, 30000);
+        mm::robot_drive_straight_with_lidars_no_profile(500.0f, 30000);
+        }
+
+        GET_ROBOT().oled.clear();
+        GET_ROBOT().oled.print(0, 0, "Finished");
         // mm::robot_drive_straight_with_lidars(500.0f, 10000);
         // mm::robot_rotate(90.0f, 10000);
         break;
@@ -81,7 +90,7 @@ void loop() {
     // chaining((char *)"rflffffrflflffrfflfrflffflffrflflfffrffrfflffflfffffl");
 
     // mm::delayWhileUpdating(100000);
-    while (true) ;
+    HALT();
 }
 
 

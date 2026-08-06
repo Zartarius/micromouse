@@ -6,7 +6,7 @@
 
 namespace mm {
 
-static constexpr uint8_t PROGMEM MAX_BUF_SIZE = 32;
+static constexpr uint8_t MAX_BUF_SIZE = 32;
 
 class OLED {
 public:

@@ -329,7 +329,7 @@ void robot_drive_straight_with_lidars_no_profile(
     // drop below the motor's static friction breakaway threshold and stall
     // short of the target instead of finishing. Tune to your motor's
     // measured breakaway PWM.
-    const int16_t min_effective_pwm = 60;
+    const int16_t min_effective_pwm = 50;
 
     while ((fabs(pos_error) > 0.1f || fabs(pos_derivative) > 2.5f) && micros() - start_time < timeout) {
         robot.gyroscope.update();
@@ -346,8 +346,133 @@ void robot_drive_straight_with_lidars_no_profile(
         }
         prev_pos_error = pos_error;
 
-        int16_t forward_output = robot.position_controller.compute_output(pos_error, dt, -180, 180);
-        if (fabs(pos_error) > 0.2f && abs(forward_output) < min_effective_pwm) {
+        int16_t forward_output = robot.position_controller.compute_output(pos_error, dt, -140, 140);
+        if (fabs(pos_error) > 0.1f && abs(forward_output) < min_effective_pwm) {
+            forward_output = (pos_error > 0.0f) ? min_effective_pwm : -min_effective_pwm;
+        }
+
+        float left_dist = static_cast<float>(robot.lidar_system.readLeft());
+        float right_dist = static_cast<float>(robot.lidar_system.readRight());
+        bool left_wall = left_dist < (180.0f - 88.0f);
+        bool right_wall = right_dist < (180.0f - 88.0f);
+
+        // wall_centering_controller outputs a heading bias in degrees
+        float heading_target = 0.0f;
+        float centering_tolerance_mm = 3.0f;
+        if (left_wall && right_wall) {
+            float lateral_error = (left_dist - right_dist) / 2.0f;
+            if (fabs(lateral_error) < centering_tolerance_mm) {
+                lateral_error = 0.0f;
+            }
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
+        } else if (left_wall) {
+            float lateral_error = left_dist - 52.0f;
+            if (fabs(lateral_error) < centering_tolerance_mm) {
+                lateral_error = 0.0f;
+            }
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
+        } else if (right_wall) {
+            float lateral_error = 52.0f - right_dist;
+            if (fabs(lateral_error) < centering_tolerance_mm) {
+                lateral_error = 0.0f;
+            }
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
+        } else {
+            wall_centering_controller.reset();
+        }
+
+        float heading_error = heading_target - robot.gyroscope.getHeading();
+        int16_t heading_output = robot.heading_controller.compute_output(heading_error, dt, -60, 60);
+
+        int16_t left_output  = constrain(forward_output - heading_output, -200, 200);
+        int16_t right_output = constrain(forward_output + heading_output, -200, 200);
+        robot.left_motor.setPWM(left_output);
+        robot.right_motor.setPWM(right_output);
+    }
+
+    if (stop_at_end) {
+        robot_stop();
+    }
+}
+
+
+// Cubic (smoothstep) position profile: position(t) = D*(3s^2 - 2s^3) where
+// s = t/T. Velocity rises and falls as a single smooth parabolic hump
+// (zero at both ends) instead of the trapezoid's flat cruise plateau, and
+// acceleration only jumps once at the very start/end instead of four
+// times - lower-jerk, at the cost of a lower average speed for the same
+// peak velocity/acceleration budget.
+void robot_drive_straight_cubic_profile(
+    const float distance,
+    const unsigned long timeout_ms,
+    bool stop_at_end = true,
+    const float max_speed_mm_s = 1000.0f, // 800
+    const float accel_mm_s2 = 600.0f // 1000
+) {
+    auto& robot = GET_ROBOT();
+
+    robot.left_motor.setEncoderToZero();
+    robot.right_motor.setEncoderToZero();
+    robot.position_controller.reset();
+    robot.heading_controller.reset();
+    robot.gyroscope.reset();
+    mm::PIDController wall_centering_controller(0.25f, 0.0f, 0.12f);
+
+    const float turn_radians = distance / robot.wheel_radius_mm;
+
+    // Cubic profile duration: for position(t) = D*(3s^2-2s^3), peak
+    // velocity is 1.5*D/T (at s=0.5) and peak |acceleration| is 6*D/T^2
+    // (at s=0 and s=1). Pick whichever T satisfies both the peak-speed
+    // and peak-acceleration budgets - same two tunables as the
+    // trapezoidal profile functions, tune to your robot's measured top
+    // speed and acceleration headroom.
+    const float direction = (turn_radians < 0.0f) ? -1.0f : 1.0f;
+    const float total_dist = fabs(turn_radians);
+    const float peak_velocity_limit = max_speed_mm_s / robot.wheel_radius_mm;
+    const float peak_accel_limit = accel_mm_s2 / robot.wheel_radius_mm;
+    const float duration_for_speed = (peak_velocity_limit > 0.001f) ? (1.5f * total_dist / peak_velocity_limit) : 0.0f;
+    const float duration_for_accel = (peak_accel_limit > 0.001f) ? sqrt(6.0f * total_dist / peak_accel_limit) : 0.0f;
+    const float profile_duration = (duration_for_speed > duration_for_accel) ? duration_for_speed : duration_for_accel;
+
+    unsigned long start_time = micros();
+    unsigned long prev_time = start_time;
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(timeout_ms);
+
+    float current_pos = (robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f;
+    float pos_error = turn_radians - current_pos;
+    float prev_pos_error = pos_error;
+    float pos_derivative = 0.0f;
+
+    // Minimum-effective PWM: once the true remaining distance is still
+    // outside tolerance but the tracked error is small (near the end of
+    // the profile), kp*error alone can drop below the motor's static
+    // friction breakaway threshold and stall short of the target instead
+    // of finishing. Tune to your motor's measured breakaway PWM.
+    const int16_t min_effective_pwm = 60;
+
+    while ((fabs(pos_error) > 0.1f || fabs(pos_derivative) > 2.5f) && micros() - start_time < timeout) {
+        robot.gyroscope.update();
+        robot.lidar_system.update();
+
+        unsigned long now = micros();
+        float dt = (now - prev_time) * 1e-6f;
+        prev_time = now;
+
+        const float elapsed = (now - start_time) * 1e-6f;
+        float s = (profile_duration > 0.0f) ? (elapsed / profile_duration) : 1.0f;
+        s = constrain(s, 0.0f, 1.0f);
+        const float profile_dist = total_dist * (3.0f * s * s - 2.0f * s * s * s);
+        const float profile_pos = direction * profile_dist;
+
+        current_pos = (robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f;
+        pos_error = turn_radians - current_pos;
+        if (dt > 0.0f) {
+            pos_derivative = (pos_error - prev_pos_error) / dt;
+        }
+        prev_pos_error = pos_error;
+
+        int16_t forward_output = robot.position_controller.compute_output(profile_pos - current_pos, dt, -230, 230);
+        if (fabs(pos_error) > 0.1f && abs(forward_output) < min_effective_pwm) {
             forward_output = (pos_error > 0.0f) ? min_effective_pwm : -min_effective_pwm;
         }
 
@@ -367,13 +492,13 @@ void robot_drive_straight_with_lidars_no_profile(
             heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
         } else if (left_wall) {
             float lateral_error = left_dist - 52;
-            if (fabs(lateral_error) < centering_tolerance_mm) { // mm, tune to your sensor noise floor
+            if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
             heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
         } else if (right_wall) {
             float lateral_error = 52 - right_dist;
-            if (fabs(lateral_error) < centering_tolerance_mm) { // mm, tune to your sensor noise floor
+            if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
             heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
@@ -384,8 +509,8 @@ void robot_drive_straight_with_lidars_no_profile(
         float heading_error = heading_target - robot.gyroscope.getHeading();
         int16_t heading_output = robot.heading_controller.compute_output(heading_error, dt, -60, 60);
 
-        int16_t left_output  = constrain(forward_output - heading_output, -200, 200);
-        int16_t right_output = constrain(forward_output + heading_output, -200, 200);
+        int16_t left_output  = constrain(forward_output - heading_output, -250, 250);
+        int16_t right_output = constrain(forward_output + heading_output, -250, 250);
         robot.left_motor.setPWM(left_output);
         robot.right_motor.setPWM(right_output);
     }

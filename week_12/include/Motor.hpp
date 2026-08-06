@@ -4,7 +4,7 @@
 
 namespace mm {
 
-static constexpr uint16_t PROGMEM COUNTS_PER_REVOLUTION = 700;
+static constexpr uint16_t COUNTS_PER_REVOLUTION = 700;
 
 enum class MotorSide {
     LEFT, RIGHT

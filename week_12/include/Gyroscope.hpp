@@ -16,7 +16,7 @@ public:
     void begin(void) {
         if (mpu6050.begin() != 0) {
             Serial.println("Couldn't connect to MPU6050");
-            while (true);
+            do {} while (true);
         }
         Wire.beginTransmission(0x68);
         Wire.write(0x1B); // gyro config register

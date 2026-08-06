@@ -4,6 +4,7 @@
 #include "PIDController.hpp"
 
 #define MILLISECONDS_TO_MICROSECONDS(X) ((unsigned long)(X) * 1000UL)
+#define HALT() do {} while (true)
 
 namespace mm {
 
