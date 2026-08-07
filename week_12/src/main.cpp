@@ -5,7 +5,7 @@
 #include "Misc.hpp"
 
 void setup() {
-    Serial.begin(9600);
+    // Serial.begin(9600);
     // Serial.println(BUILD_TIMESTAMP);
     Wire.begin();
     Wire.setWireTimeout(3000, true);
@@ -18,7 +18,7 @@ void setup() {
     delay(500); // Give time for gyroscope to be still
     robot.gyroscope.begin();
 
-    robot.oled.print(0, 0, "Setup complete");
+    // robot.oled.print(0, 0, "Setup complete");
 }
 
 // usage should be:
@@ -39,27 +39,29 @@ void chaining(char *movement) {
             case 'f': {
                 int n = count_forwards(&movement[i]);
                 if (n > 2) {
-                    mm::robot_drive_straight_cubic_profile((float) n * 180.0f, 5000 * n); // to change
+                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n); // to change
+                    // mm::robot_drive_straight_cubic_profile((float) n * 180.0f, 5000 * n); // to change
                 } else {
                     mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n); // to change
                 }
                 i += n;
                 break;
             } case 'r': {
-                mm::robot_rotate(-90.0f, 1250);
+                mm::robot_rotate(-90.0f, 600);
                 i++;
                 break;
             } case 'l': {
-                mm::robot_rotate(90.0f, 1250);
+                mm::robot_rotate(90.0f, 600);
                 i++;
                 break;
             } default: {
                 HALT();
             }
         }
-
-        movement++;
     }
+
+    // GET_ROBOT().oled.clear();
+    // GET_ROBOT().oled.print(0, 0, "i: %d\nmovt[i]: %c", i, movement[i]);
 }
 
 
@@ -72,22 +74,15 @@ void loop() {
     // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
     // mm::robot_turn(180.0f, 90.0f, 3000);
     // // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
-    while (true) {
-        // mm::robot_drive_straight_with_lidars(600.0f, 10000);
+    // while (true) {
+    //     // mm::robot_drive_straight_with_lidars(600.0f, 10000);
 
-        // mm::robot_drive_straight(600.0f, 15000);
-        for (int i = 0; i < 4; i++) {
-        // mm::robot_drive_straight_cubic_profile(500.0f, 30000);
-        mm::robot_drive_straight_with_lidars_no_profile(500.0f, 30000);
-        }
+    //     // mm::robot_drive_straight(600.0f, 15000);
 
-        GET_ROBOT().oled.clear();
-        GET_ROBOT().oled.print(0, 0, "Finished");
-        // mm::robot_drive_straight_with_lidars(500.0f, 10000);
-        // mm::robot_rotate(90.0f, 10000);
-        break;
-    }
-    // chaining((char *)"rflffffrflflffrfflfrflffflffrflflfffrffrfflffflfffffl");
+    // }
+    // chaining((char *)"rrrr");
+    // mm::optimised_chaining((char *)"ffffrflfrfrflflfrfflfrfrflfrflfrffff");
+    chaining((char *)"ffffrflfrfrflflfrfflfrfrflfrflfrffffrflfrffffflflffff");
 
     // mm::delayWhileUpdating(100000);
     HALT();

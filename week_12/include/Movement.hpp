@@ -48,7 +48,7 @@ void robot_rotate(const float degrees, const unsigned long timeout_ms) {
         }
         prev_error = error;
 
-        int16_t output = robot.rotation_controller.compute_output(error, dt, -120, 120);
+        int16_t output = robot.rotation_controller.compute_output(error, dt, -140, 140);
 
         robot.left_motor.setPWM(-output);
         robot.right_motor.setPWM(output);
@@ -310,7 +310,7 @@ void robot_drive_straight_with_lidars_no_profile(
     robot.position_controller.reset();
     robot.heading_controller.reset();
     robot.gyroscope.reset();
-    mm::PIDController wall_centering_controller(0.25f, 0.0f, 0.12f);
+    mm::PIDController wall_centering_controller(0.25f, 0.0f, 0.14f);
     // 1.2, 0.0, 0.05, 0.5 rn
 
     const float turn_radians = distance / robot.wheel_radius_mm;
@@ -331,9 +331,29 @@ void robot_drive_straight_with_lidars_no_profile(
     // measured breakaway PWM.
     const int16_t min_effective_pwm = 50;
 
-    while ((fabs(pos_error) > 0.1f || fabs(pos_derivative) > 2.5f) && micros() - start_time < timeout) {
+    // Require a few consecutive close readings before trusting the front
+    // wall as real - readFront() defaults to -1 (stale sentinel, always
+    // "<=50") until the sensor's first real reading lands, and even once
+    // it's reading for real, a single noisy sample shouldn't abort the
+    // whole drive.
+    // uint8_t front_wall_count = 0;
+    // const uint8_t front_wall_debounce = 3;
+
+    while ((fabs(pos_error) > 0.1f || fabs(pos_derivative) > 20.0f) && micros() - start_time < timeout) {
         robot.gyroscope.update();
         robot.lidar_system.update();
+
+        // if (robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 50) {
+        //     front_wall_count++;
+        //     if (front_wall_count >= front_wall_debounce) {
+        //         robot.oled.clear();
+        //         robot.oled.print(0, 0, "Braked");
+        //         robot.oled.print(0, 1, "%d", (int) distance);
+        //         break;
+        //     }
+        // } else {
+        //     front_wall_count = 0;
+        // }
 
         unsigned long now = micros();
         float dt = (now - prev_time) * 1e-6f;
@@ -346,7 +366,7 @@ void robot_drive_straight_with_lidars_no_profile(
         }
         prev_pos_error = pos_error;
 
-        int16_t forward_output = robot.position_controller.compute_output(pos_error, dt, -140, 140);
+        int16_t forward_output = robot.position_controller.compute_output(pos_error, dt, -165, 165);
         if (fabs(pos_error) > 0.1f && abs(forward_output) < min_effective_pwm) {
             forward_output = (pos_error > 0.0f) ? min_effective_pwm : -min_effective_pwm;
         }
@@ -364,19 +384,19 @@ void robot_drive_straight_with_lidars_no_profile(
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
         } else if (left_wall) {
             float lateral_error = left_dist - 52.0f;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
         } else if (right_wall) {
             float lateral_error = 52.0f - right_dist;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -8, 8));
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
         } else {
             wall_centering_controller.reset();
         }
@@ -450,9 +470,26 @@ void robot_drive_straight_cubic_profile(
     // of finishing. Tune to your motor's measured breakaway PWM.
     const int16_t min_effective_pwm = 60;
 
+    // Require a few consecutive close readings before trusting the front
+    // wall as real - readFront() defaults to -1 (stale sentinel, always
+    // "<=50") until the sensor's first real reading lands, and even once
+    // it's reading for real, a single noisy sample shouldn't abort the
+    // whole drive.
+    uint8_t front_wall_count = 0;
+    const uint8_t front_wall_debounce = 3;
+
     while ((fabs(pos_error) > 0.1f || fabs(pos_derivative) > 2.5f) && micros() - start_time < timeout) {
         robot.gyroscope.update();
         robot.lidar_system.update();
+
+        if (robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 50) {
+            front_wall_count++;
+            if (front_wall_count >= front_wall_debounce) {
+                break;
+            }
+        } else {
+            front_wall_count = 0;
+        }
 
         unsigned long now = micros();
         float dt = (now - prev_time) * 1e-6f;
@@ -614,11 +651,13 @@ void optimised_chaining(const char *movement) {
 
         if (movement[i + num_f] != 'l' && movement[i + num_f] != 'r') {
             // String ends
-            robot_drive_straight_with_lidars((float) num_f * CELL, 15000);
+            robot_drive_straight_cubic_profile((float) num_f * CELL, 15000);
+            // robot_drive_straight_with_lidars((float) num_f * CELL, 15000);
             break;
         }
 
-        robot_drive_straight_with_lidars(((float) num_f - 1.0f) * CELL + HALF_CELL, 15000);
+        robot_drive_straight_cubic_profile(((float) num_f - 1.0f) * CELL + HALF_CELL, 15000);
+        // robot_drive_straight_with_lidars(((float) num_f - 1.0f) * CELL + HALF_CELL, 15000);
         i += (num_f - 1);
 
         // 90º turn left

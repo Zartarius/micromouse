@@ -37,7 +37,7 @@ while(1):
     #read source image
     img = cv2.imread("./maze_images/pg_test_square.jpg")
 
-    #scale down the image by a factor of 4
+    #scale down the image by a factor of 1
     width = img.shape[1] // 1
     height = img.shape[0] // 1
     img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)

@@ -49,6 +49,7 @@ public:
         lidar.init();
         lidar.setAddress(address);
         lidar.configureDefault();
+        // lidar.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 0x14);
         lidar.setTimeout(30); // short timeout: we never want a stall here
     }
 
