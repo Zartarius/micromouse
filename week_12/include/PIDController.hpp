@@ -35,6 +35,12 @@ public:
         state.prev_error = 0.0f;
     }
 
+    void tune(float kp, float ki, float kd) {
+        this->kp = kp;
+        this->ki = ki;
+        this->kd = kd;
+    }
+
 private:
     /*
         State of PID control, includes current integral value and previous error
@@ -42,12 +48,10 @@ private:
     struct PIDState {
         float integral = 0.0f;
         float prev_error = 0.0f;
-    };
+    } state;
 
     float kp, ki, kd;
     float integral_limit;
-
-    PIDState state;
 };
 
 

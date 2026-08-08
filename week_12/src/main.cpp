@@ -39,10 +39,10 @@ void chaining(char *movement) {
             case 'f': {
                 int n = count_forwards(&movement[i]);
                 if (n > 2) {
-                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n); // to change
+                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n, 150); // to change
                     // mm::robot_drive_straight_cubic_profile((float) n * 180.0f, 5000 * n); // to change
                 } else {
-                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n); // to change
+                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n, 150); // to change
                 }
                 i += n;
                 break;
@@ -66,7 +66,7 @@ void chaining(char *movement) {
 
 
 void loop() {
-    // auto& r = ROBOT;
+    // auto& r = GET_ROBOT();
 
     // mm::delayWhileUpdating(20000);
     //chaining((char *)"ffrffflfffrflf");
@@ -78,11 +78,23 @@ void loop() {
     //     // mm::robot_drive_straight_with_lidars(600.0f, 10000);
 
     //     // mm::robot_drive_straight(600.0f, 15000);
-
+    // mm::robot_drive_straight_with_lidars_no_profile(500.0f, 30000, 120);
+    for (int i = 0; i < 2; i++) {
+        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
+        mm::robot_rotate(-90.0f, 1000);
+        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
+        mm::robot_rotate(90.0f, 1000);
+        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
+        mm::robot_rotate(90.0f, 1000);
+        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
+        mm::robot_rotate(-90.0f, 1000);
+        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
+    }
+    // 25 seconds with cubic
     // }
     // chaining((char *)"rrrr");
     // mm::optimised_chaining((char *)"ffffrflfrfrflflfrfflfrfrflfrflfrffff");
-    chaining((char *)"ffffrflfrfrflflfrfflfrfrflfrflfrffffrflfrffffflflffff");
+    // chaining((char *)"ffffrflfrfrflflfrfrflfrfrflflfrflfrfrfflfrfflflffff");
 
     // mm::delayWhileUpdating(100000);
     HALT();
