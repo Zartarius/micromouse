@@ -35,7 +35,7 @@ cv2.createTrackbar('high V', 'controls', 255, 255, callback)
 
 while(1):
     #read source image
-    img = cv2.imread("./maze_images/pg_test_square.jpg")
+    img = cv2.imread("./path_planning/maze_images/pg_test_square.jpg")
 
     #scale down the image by a factor of 1
     width = img.shape[1] // 1

@@ -1,6 +1,6 @@
 import sys
 import cv2 as cv
-import path_generation as pg
+import path_planning.path_finder as pg
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
