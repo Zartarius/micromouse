@@ -3,6 +3,7 @@
 #include "Robot.hpp"
 #include "Movement.hpp"
 #include "Misc.hpp"
+#include "AutoMapping.hpp"
 
 void setup() {
     // Serial.begin(9600);
@@ -21,146 +22,32 @@ void setup() {
     // robot.oled.print(0, 0, "Setup complete");
 }
 
-// usage should be:
-// chaining("lffrlrfr");       or any order of movements, should receive 8 movements
-void chaining(char *movement) {
-    const auto& count_forwards = [](const char *p) {
-        int n = 0;
-        while (*p == 'f') {
-            n++;
-            p++;
-        }
-        return n;
-    };
-
-    int i = 0;
-    while (movement[i] != '\0') {
-        switch (movement[i]) {
-            case 'f': {
-                int n = count_forwards(&movement[i]);
-                if (n > 2) {
-                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n, 150); // to change
-                    // mm::robot_drive_straight_cubic_profile((float) n * 180.0f, 5000 * n); // to change
-                } else {
-                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n, 150); // to change
-                }
-                i += n;
-                break;
-            } case 'r': {
-                mm::robot_rotate(-90.0f, 600);
-                i++;
-                break;
-            } case 'l': {
-                mm::robot_rotate(90.0f, 600);
-                i++;
-                break;
-            } default: {
-                HALT();
-            }
-        }
-    }
-
-    // GET_ROBOT().oled.clear();
-    // GET_ROBOT().oled.print(0, 0, "i: %d\nmovt[i]: %c", i, movement[i]);
-}
-
-
 void loop() {
     // auto& r = GET_ROBOT();
 
-    // mm::delayWhileUpdating(20000);
-    //chaining((char *)"ffrffflfffrflf");
-    // mm::robot_drive_straight(90.0f, 3000);
-    // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
-    // mm::robot_turn(180.0f, 90.0f, 3000);
-    // // mm::robot_drive_straight_with_lidars(1000.0f, 15000);
-    // while (true) {
-    //     // mm::robot_drive_straight_with_lidars(600.0f, 10000);
+    mm::do_auto_mapping();
+    // mm::robot_drive_straight_with_lidars_no_profile(360.0f, 30000, 130);
 
-    //     // mm::robot_drive_straight(600.0f, 15000);
-    // mm::robot_drive_straight_with_lidars_no_profile(500.0f, 30000, 120);
-    for (int i = 0; i < 2; i++) {
-        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
-        mm::robot_rotate(-90.0f, 1000);
-        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
-        mm::robot_rotate(90.0f, 1000);
-        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
-        mm::robot_rotate(90.0f, 1000);
-        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
-        mm::robot_rotate(-90.0f, 1000);
-        mm::robot_drive_straight_with_lidars_no_profile(180.0f, 30000, 140);
+
+    /*
+    unsigned long s = millis();
+    while (true) {
+        r.lidar_system.update();
+        int le = r.lidar_system.readLeft();
+        int ri = r.lidar_system.readRight();
+        int fr = r.lidar_system.readFront();
+
+        if (millis() - s >= 1000) {
+            r.oled.clear();
+            r.oled.print(0, 0, "left: %d", le);
+            r.oled.print(0, 1, "front: %d", fr);
+            r.oled.print(0, 2, "right: %d", ri);
+
+            s = millis();
+        }
     }
-    // 25 seconds with cubic
-    // }
-    // chaining((char *)"rrrr");
-    // mm::optimised_chaining((char *)"ffffrflfrfrflflfrfflfrfrflfrflfrffff");
-    // chaining((char *)"ffffrflfrfrflflfrfrflfrfrflflfrflfrfrfflfrfflflffff");
+        */
 
-    // mm::delayWhileUpdating(100000);
+
     HALT();
 }
-
-
-
-
-// using namespace mtrn3100;
-// Maze maze;
-
-// void setup()
-// {
-//     Serial.begin(9600);
-
-//     delay(1000);  // give serial monitor time to connect
-
-//     // Add test walls
-//     maze.setWall(0,0,Wall::EAST,true);
-//     maze.setWall(0,1,Wall::SOUTH,true);
-
-//     maze.setWall(1,1,Wall::EAST,true);
-//     maze.setWall(1,2,Wall::SOUTH,true);
-
-//     maze.setWall(2,2,Wall::EAST,true);
-//     maze.setWall(2,3,Wall::SOUTH,true);
-
-//     maze.setWall(3,3,Wall::EAST,true);
-//     maze.setWall(3,4,Wall::SOUTH,true);
-
-//     maze.setWall(2,7,Wall::WEST,true);
-//     maze.setWall(3,7,Wall::WEST,true);
-
-//     maze.setWall(5,6,Wall::WEST,true);
-//     maze.setWall(6,6,Wall::SOUTH,true);
-
-//     maze.setWall(8,1,Wall::NORTH,true);
-//     maze.setWall(8,2,Wall::NORTH,true);
-
-//     maze.setWall(7,2,Wall::EAST,true);
-//     maze.setWall(6,2,Wall::EAST,true);
-
-//     // Print maze
-//     maze.printMaze();
-// }
-
-// void loop()
-// {
-
-// }
-
-
-
-// #include <iostream>
-// #include "maze.hpp"
-
-// using namespace mtrn3100;
-
-// int main()
-// {
-//     Maze maze;
-
-//     maze.setWall(0,0,Wall::EAST,true);
-//     maze.setWall(0,1,Wall::SOUTH,true);
-
-//     maze.printMaze();
-
-//     return 0;
-// }

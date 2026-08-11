@@ -65,6 +65,28 @@ public:
     size_t count = 0;
 };
 
+template <typename T, size_t len>
+struct Stack {
+    T data[len];
+    uint16_t top = 0;
+
+    void push(T value) {
+        if (top >= len) return;
+        data[top] = value;
+        top++;
+    }
+
+    T pop() {
+        top--;
+        return data[top];
+    }
+
+    T peek() const {
+        return data[top - 1];
+    }
+};
+
+
 // Returns true if str[:n] == ref[:]
 bool str_eq(const char *str, const char *ref, int n) {
     for (int i = 0; i < n; i++) {
