@@ -31,7 +31,7 @@ void robot_rotate(const float degrees, const unsigned long timeout_ms) {
     // lower = smoother to react, higher = noisier to react
     const float derivative_smoothing = 0.2f;
 
-    while ((fabs(error) > 1.5f || fabs(error_derivative) > 15.0f) && micros() - start_time < timeout) {
+    while ((fabs(error) > 0.5f || fabs(error_derivative) > 20.0f) && micros() - start_time < timeout) {
         unsigned long now = micros();
         float dt = (now - prev_time) * 1e-6f;
         prev_time = now;
@@ -48,7 +48,7 @@ void robot_rotate(const float degrees, const unsigned long timeout_ms) {
         }
         prev_error = error;
 
-        int16_t output = robot.rotation_controller.compute_output(error, dt, -140, 140);
+        int16_t output = robot.rotation_controller.compute_output(error, dt, -150, 150);
 
         robot.left_motor.setPWM(-output);
         robot.right_motor.setPWM(output);
@@ -311,7 +311,7 @@ void robot_drive_straight_with_lidars_no_profile(
     robot.position_controller.reset();
     robot.heading_controller.reset();
     robot.gyroscope.reset();
-    mm::PIDController wall_centering_controller(0.25f, 0.0f, 0.14f);
+    mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.2f);
     // 1.2, 0.0, 0.05, 0.5 rn
 
     const float turn_radians = distance / robot.wheel_radius_mm;
@@ -379,7 +379,7 @@ void robot_drive_straight_with_lidars_no_profile(
 
         // wall_centering_controller outputs a heading bias in degrees
         float heading_target = 0.0f;
-        float centering_tolerance_mm = 3.0f;
+        float centering_tolerance_mm = 1.0f;
         if (left_wall && right_wall) {
             float lateral_error = (left_dist - right_dist) / 2.0f;
             if (fabs(lateral_error) < centering_tolerance_mm) {
@@ -387,13 +387,13 @@ void robot_drive_straight_with_lidars_no_profile(
             }
             heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
         } else if (left_wall) {
-            float lateral_error = left_dist - 52.0f;
+            float lateral_error = left_dist - 55.0f;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
             heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
         } else if (right_wall) {
-            float lateral_error = 52.0f - right_dist;
+            float lateral_error = 55.0f - right_dist;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
@@ -404,6 +404,162 @@ void robot_drive_straight_with_lidars_no_profile(
 
         float heading_error = heading_target - robot.gyroscope.getHeading();
         int16_t heading_output = robot.heading_controller.compute_output(heading_error, dt, -50, 50);
+
+        int16_t left_output  = constrain(forward_output - heading_output, -160, 160);
+        int16_t right_output = constrain(forward_output + heading_output, -160, 160);
+        robot.left_motor.setPWM(left_output);
+        robot.right_motor.setPWM(right_output);
+    }
+
+    if (stop_at_end) {
+        robot_stop();
+    }
+}
+
+
+// Same as robot_drive_straight_with_lidars_no_profile, but also watches
+// for the robot having settled into genuinely straight, wall-parallel
+// travel and re-zeroes the gyroscope heading reference at that moment -
+// a cheap way to correct accumulated gyro drift mid-move using the walls
+// as an independent, drift-free reference.
+void robot_drive_straight_reset_gyroscope(
+    const float distance,
+    const unsigned long timeout_ms,
+    const int16_t max_abs_pwm,
+    bool stop_at_end = true
+) {
+    auto& robot = GET_ROBOT();
+
+    robot.left_motor.setEncoderToZero();
+    robot.right_motor.setEncoderToZero();
+    robot.position_controller.reset();
+    robot.heading_controller.reset();
+    robot.gyroscope.reset();
+    mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.2f);
+
+    const float turn_radians = distance / robot.wheel_radius_mm;
+
+    unsigned long start_time = micros();
+    unsigned long prev_time = start_time;
+    const unsigned long timeout = MILLISECONDS_TO_MICROSECONDS(timeout_ms);
+
+    float current_pos = (robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f;
+    float pos_error = turn_radians - current_pos;
+    float prev_pos_error = pos_error;
+    float pos_derivative = 0.0f;
+
+    // Minimum-effective PWM: once the true remaining distance is still
+    // outside tolerance but the tracked error is small, kp*error alone can
+    // drop below the motor's static friction breakaway threshold and stall
+    // short of the target instead of finishing. Tune to your motor's
+    // measured breakaway PWM.
+    const int16_t min_effective_pwm = 50;
+
+    // "Settled straight" detection: require the lateral wall-centering
+    // error to be small AND stable (not still actively converging), and
+    // the robot's real heading to have actually caught up to the
+    // commanded heading_target - not just that heading_target itself
+    // happens to be near zero this instant. All three have to hold for
+    // several consecutive iterations (not a single lucky sample) before
+    // we trust it enough to re-zero the gyroscope. Tune the tolerances
+    // and debounce count empirically.
+    const float straight_lateral_tolerance_mm = 2.0f;
+    const float straight_lateral_derivative_tolerance = 5.0f;
+    const float straight_heading_tolerance_deg = 1.0f;
+    const uint8_t straight_debounce = 10;
+    float prev_lateral_error = 0.0f;
+    uint8_t straight_count = 0;
+    bool already_reset = false;
+
+    // lateral_error only actually changes when a fresh lidar sample lands
+    // (every ~20ms), but this loop runs much faster than that - a raw
+    // instantaneous derivative would mostly read ~0 between samples, then
+    // spike hugely the instant a new (even 1mm-different) sample arrives,
+    // since that jump gets divided by the loop's much smaller dt rather
+    // than the ~20ms it actually took. Smooth it the same way robot_rotate
+    // smooths its own derivative, so single noisy samples can't spike it.
+    float smoothed_lateral_derivative = 0.0f;
+    const float lateral_derivative_smoothing = 0.2f;
+
+    while ((fabs(pos_error) > 0.2f || fabs(pos_derivative) > 20.0f) && micros() - start_time < timeout) {
+        robot.gyroscope.update();
+        robot.lidar_system.update();
+
+        unsigned long now = micros();
+        float dt = (now - prev_time) * 1e-6f;
+        prev_time = now;
+
+        current_pos = (robot.left_motor.getRotation() + robot.right_motor.getRotation()) / 2.0f;
+        pos_error = turn_radians - current_pos;
+        if (dt > 0.0f) {
+            pos_derivative = (pos_error - prev_pos_error) / dt;
+        }
+        prev_pos_error = pos_error;
+
+        int16_t forward_output = robot.position_controller.compute_output(pos_error, dt, -max_abs_pwm, max_abs_pwm);
+        if (fabs(pos_error) > 0.1f && abs(forward_output) < min_effective_pwm) {
+            forward_output = (pos_error > 0.0f) ? min_effective_pwm : -min_effective_pwm;
+        }
+
+        float left_dist = static_cast<float>(robot.lidar_system.readLeft());
+        float right_dist = static_cast<float>(robot.lidar_system.readRight());
+        bool left_wall = left_dist < (180.0f - 88.0f);
+        bool right_wall = right_dist < (180.0f - 88.0f);
+
+        // wall_centering_controller outputs a heading bias in degrees
+        float heading_target = 0.0f;
+        float lateral_error = 0.0f;
+        float centering_tolerance_mm = 1.0f;
+        if (left_wall && right_wall) {
+            lateral_error = (left_dist - right_dist) / 2.0f;
+            if (fabs(lateral_error) < centering_tolerance_mm) {
+                lateral_error = 0.0f;
+            }
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
+        } else if (left_wall) {
+            lateral_error = left_dist - 55.0f;
+            if (fabs(lateral_error) < centering_tolerance_mm) {
+                lateral_error = 0.0f;
+            }
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
+        } else if (right_wall) {
+            lateral_error = 55.0f - right_dist;
+            if (fabs(lateral_error) < centering_tolerance_mm) {
+                lateral_error = 0.0f;
+            }
+            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -10, 10));
+        } else {
+            wall_centering_controller.reset();
+        }
+
+        float heading_error = heading_target - robot.gyroscope.getHeading();
+
+        bool wall_detected = left_wall || right_wall;
+        if (dt > 0.0f) {
+            float raw_lateral_derivative = (lateral_error - prev_lateral_error) / dt;
+            smoothed_lateral_derivative = smoothed_lateral_derivative * (1.0f - lateral_derivative_smoothing)
+                                         + raw_lateral_derivative * lateral_derivative_smoothing;
+        }
+        prev_lateral_error = lateral_error;
+
+        bool settled_straight = wall_detected
+            && fabs(lateral_error) < straight_lateral_tolerance_mm
+            && fabs(smoothed_lateral_derivative) < straight_lateral_derivative_tolerance
+            && fabs(heading_error) < straight_heading_tolerance_deg;
+
+        if (settled_straight) {
+            if (straight_count < straight_debounce) {
+                straight_count++;
+            } else if (!already_reset) {
+                robot.gyroscope.reset();
+                already_reset = true;
+            }
+        } else {
+            straight_count = 0;
+            already_reset = false;
+        }
+
+        int16_t heading_output = robot.heading_controller.compute_output(heading_error, dt, -30, 30);
 
         int16_t left_output  = constrain(forward_output - heading_output, -160, 160);
         int16_t right_output = constrain(forward_output + heading_output, -160, 160);
@@ -619,6 +775,48 @@ void robot_turn(const float degrees, const float radius_mm, const unsigned long 
 
     // robot.left_motor.setPWM(0);
     // robot.right_motor.setPWM(0);
+}
+
+
+void chaining(char *movement) {
+    const auto& count_forwards = [](const char *p) {
+        int n = 0;
+        while (*p == 'f') {
+            n++;
+            p++;
+        }
+        return n;
+    };
+
+    int i = 0;
+    while (movement[i] != '\0') {
+        switch (movement[i]) {
+            case 'f': {
+                int n = count_forwards(&movement[i]);
+                if (n > 2) {
+                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n, 150); // to change
+                    // mm::robot_drive_straight_cubic_profile((float) n * 180.0f, 5000 * n); // to change
+                } else {
+                    mm::robot_drive_straight_with_lidars_no_profile((float) n * 180.0f, 5000 * n, 150); // to change
+                }
+                i += n;
+                break;
+            } case 'r': {
+                mm::robot_rotate(-90.0f, 600);
+                i++;
+                break;
+            } case 'l': {
+                mm::robot_rotate(90.0f, 600);
+                i++;
+                break;
+            } default: {
+                HALT();
+            }
+        }
+    }
+
+    // GET_ROBOT().oled.clear();
+    // GET_ROBOT().oled.print(0, 0, "i: %d\nmovt[i]: %c", i, movement[i]);
 }
 
 
