@@ -31,6 +31,18 @@ public:
     */
     void reset(void) {
         mpu6050.resetAngles();
+        zero_offset = 0.0f;
+    }
+
+    /*
+    Re-anchors "current heading" as the new zero, without touching the
+    hardware - no I2C transaction, just moves the software zero point to
+    wherever the last-computed angle already is. Cheap enough to call every
+    control-loop tick (e.g. while a wall confirms the robot is tracking
+    straight), unlike reset() which re-fetches from the IMU.
+    */
+    void rebase(void) {
+        zero_offset = mpu6050.getAngleZ();
     }
 
     /*
@@ -49,12 +61,13 @@ public:
     Returns heading of the IMU, in degrees. CW is negative, CCW is positive.
     */
     float getHeading() {
-        return mpu6050.getAngleZ();
+        return mpu6050.getAngleZ() - zero_offset;
     }
 
 private:
     MPU6050 mpu6050{Wire};
     unsigned long last_update_ms = 0;
+    float zero_offset = 0.0f;
 };
 
 }

@@ -24,29 +24,29 @@ void setup() {
 
 void loop() {
     // auto& r = GET_ROBOT();
-
     mm::do_auto_mapping();
-    // mm::robot_drive_straight_with_lidars_no_profile(360.0f, 30000, 130);
+    // mm::chaining((char *)"frffflfrffrflfffrf");
+    // mm::robot_drive_straight_with_lidars_no_profile(1000.0f, 30000, 130);
 
 
-    /*
-    unsigned long s = millis();
-    while (true) {
-        r.lidar_system.update();
-        int le = r.lidar_system.readLeft();
-        int ri = r.lidar_system.readRight();
-        int fr = r.lidar_system.readFront();
 
-        if (millis() - s >= 1000) {
-            r.oled.clear();
-            r.oled.print(0, 0, "left: %d", le);
-            r.oled.print(0, 1, "front: %d", fr);
-            r.oled.print(0, 2, "right: %d", ri);
+    // unsigned long s = millis();
+    // while (true) {
+    //     r.lidar_system.update();
+    //     int le = r.lidar_system.readLeft();
+    //     int ri = r.lidar_system.readRight();
+    //     int fr = r.lidar_system.readFront();
 
-            s = millis();
-        }
-    }
-        */
+    //     if (millis() - s >= 1000) {
+    //         r.oled.clear();
+    //         r.oled.print(0, 0, "left: %d", le);
+    //         r.oled.print(0, 1, "front: %d", fr);
+    //         r.oled.print(0, 2, "right: %d", ri);
+
+    //         s = millis();
+    //     }
+    // }
+
 
 
     HALT();
