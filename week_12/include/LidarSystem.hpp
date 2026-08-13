@@ -31,6 +31,7 @@ public:
             digitalWrite(config[i].en_pin, LOW);
 
             sensors[i].last_mm = -1;
+            sensors[i].filtered_mm = -1.0f;
             sensors[i].has_reading = false;
             sensors[i].last_update_ms = 0;
         }
@@ -102,10 +103,18 @@ private:
 
     static constexpr uint8_t RANGING_PERIOD_MS = 50;
     static constexpr unsigned long STALE_TIMEOUT_MS = 250;
+    // Exponential moving average weight for fresh samples: higher = more
+    // responsive/less smoothing, lower = smoother/more lag. Readings only
+    // actually refresh every RANGING_PERIOD_MS, so smoothing too heavily
+    // (low alpha) adds real-world lag to wall-centering reactions on top
+    // of that - 0.4 knocks down single-sample jitter without holding
+    // onto stale values for long.
+    static constexpr float SMOOTHING_ALPHA = 1.0f;
 
     struct Sensor {
         VL6180X device;
         int last_mm = -1;
+        float filtered_mm = -1.0f;
         bool has_reading = false;
         unsigned long last_update_ms = 0;
     };
@@ -141,6 +150,7 @@ private:
         sensors[i].last_update_ms = millis();
         sensors[i].has_reading = false;
         sensors[i].last_mm = -1;
+        sensors[i].filtered_mm = -1.0f;
     }
 
     void pollOne(uint8_t i) {
@@ -159,7 +169,19 @@ private:
                     VL6180X::RESULT__RANGE_VAL
                 );
 
-            s.last_mm = static_cast<int>(range);
+            int raw_mm = static_cast<int>(range);
+
+            // EMA smoothing. Snap straight to the first real reading
+            // instead of blending from the -1 placeholder, so startup
+            // doesn't ramp up from a meaningless default.
+            if (!s.has_reading) {
+                s.filtered_mm = static_cast<float>(raw_mm);
+            } else {
+                s.filtered_mm = s.filtered_mm * (1.0f - SMOOTHING_ALPHA)
+                               + static_cast<float>(raw_mm) * SMOOTHING_ALPHA;
+            }
+            s.last_mm = static_cast<int>(s.filtered_mm + 0.5f);
+
             s.has_reading = true;
             s.last_update_ms = millis();
 
