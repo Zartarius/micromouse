@@ -35,11 +35,11 @@ cv2.createTrackbar('high V', 'controls', 255, 255, callback)
 
 while(1):
     #read source image
-    img = cv2.imread("./path_planning/maze_images/pg_test_square.jpg")
+    img = cv2.imread("./path_planning/maze_images/cam_3_1.jpg")
 
     #scale down the image by a factor of 1
-    width = img.shape[1] // 1
-    height = img.shape[0] // 1
+    width = int(img.shape[1] * 0.4)
+    height = int(img.shape[0] * 0.4)
     img = cv2.resize(img, (width, height), interpolation=cv2.INTER_AREA)
 
     #convert source image to HSV color mode

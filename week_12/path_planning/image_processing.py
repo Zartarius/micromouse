@@ -3,6 +3,142 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
+def find_colour_marker(hsv, lower, upper, offset=60):
+    """
+    Finds the largest coloured rectangle and returns
+
+        centroid
+        top-left
+        bottom-right
+        mask
+    """
+
+    mask = cv2.inRange(
+        hsv,
+        np.array(lower, dtype=np.uint8),
+        np.array(upper, dtype=np.uint8)
+    )
+
+    # Remove small noise
+    kernel = np.ones((5, 5), np.uint8)
+
+    mask = cv2.morphologyEx(
+        mask,
+        cv2.MORPH_OPEN,
+        kernel
+    )
+
+    mask = cv2.morphologyEx(
+        mask,
+        cv2.MORPH_CLOSE,
+        kernel
+    )
+
+    contours_info = cv2.findContours(
+        mask,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    # Compatible with OpenCV 3 and 4
+    if len(contours_info) == 2:
+        contours = contours_info[0]
+    else:
+        contours = contours_info[1]
+
+    if len(contours) == 0:
+        return None
+
+    contour = max(contours, key=cv2.contourArea)
+
+    M = cv2.moments(contour)
+
+    if M["m00"] == 0:
+        return None
+
+    cx = int(M["m10"] / M["m00"])
+    cy = int(M["m01"] / M["m00"])
+
+    top_left = (cx - offset, cy - offset)
+    bottom_right = (cx + offset, cy + offset)
+
+    return {
+        "centroid": (cx, cy),
+        "top_left": top_left,
+        "bottom_right": bottom_right,
+        "mask": mask
+    }
+
+
+def detect_corner_markers(image):
+
+    hsv = cv2.cvtColor(
+        image,
+        cv2.COLOR_RGB2HSV
+    )
+
+    colours = {
+        "top_left": {
+            "lower": (140, 20, 130),
+            "upper": (179, 41, 162)
+        },
+
+        "top_right": {
+            "lower": (0, 135, 0),
+            "upper": (179, 209, 255)
+        },
+
+        "bottom_left": {
+            "lower": (109, 40, 100),
+            "upper": (179, 255, 147)
+        },
+
+        "bottom_right": {
+            "lower": (19, 91, 120),
+            "upper": (34, 177, 255)
+        }
+    }
+
+    centres = {}
+
+    for name, values in colours.items():
+
+        result = find_colour_marker(
+            hsv,
+            values["lower"],
+            values["upper"]
+        )
+
+        if result is None:
+            raise ValueError(
+                f"Could not detect {name} marker."
+            )
+
+        centres[name] = result["centroid"]
+
+    # ---------------------------------------------------------
+    # Marker centroid -> actual maze corner
+    #
+    # TL: (+50, +50)
+    # TR: (-50, +50)
+    # BL: (+50, -50)
+    # BR: (-50, -50)
+    # ---------------------------------------------------------
+
+    tl_x, tl_y = centres["top_left"]
+    tr_x, tr_y = centres["top_right"]
+    bl_x, bl_y = centres["bottom_left"]
+    br_x, br_y = centres["bottom_right"]
+    offset = 70
+    source_points = np.float32([
+        [tl_x - offset, tl_y - offset],   # top-left
+        [tr_x + offset, tr_y - offset],   # top-right
+        [bl_x - (offset+30), bl_y + (offset-20)],   # bottom-left
+        [br_x + offset, br_y + offset]    # bottom-right
+    ])
+
+    return source_points
+
 def load_and_process_image(image_file, side=900):
     """
     Load the camera image, apply perspective correction and convert
@@ -18,12 +154,49 @@ def load_and_process_image(image_file, side=900):
 
     # Map the four maze corners to a square so that each cell has
     # approximately equal dimensions for wall detection.
-    source_points = np.float32([
-        [707, 240],
-        [1925, 269],
-        [690, 1430],
-        [1882, 1466]
-    ])
+    source_points = detect_corner_markers(image)
+
+    display = image.copy()
+
+    # Draw detected maze corner points
+    for point in source_points:
+
+        x, y = point.astype(int)
+
+        cv2.circle(
+            display,
+            (x, y),
+            5,
+            (0, 255, 0),
+            -1
+        )
+
+    # Connect the four corners
+    for i in range(4):
+
+        p1 = tuple(
+            source_points[i].astype(int)
+        )
+
+        p2 = tuple(
+            source_points[(i + 1) % 4].astype(int)
+        )
+
+        cv2.line(
+            display,
+            p1,
+            p2,
+            (255, 0, 0),
+            2
+        )
+
+    plt.figure(figsize=(8, 8))
+
+    plt.imshow(display)
+
+    plt.title("Detected Maze Corners")
+
+    plt.show()
 
     destination_points = np.float32([
         [0, 0],
