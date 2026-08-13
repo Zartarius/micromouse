@@ -133,7 +133,7 @@ def detect_corner_markers(image):
     source_points = np.float32([
         [tl_x - offset, tl_y - offset],   # top-left
         [tr_x + offset, tr_y - offset],   # top-right
-        [bl_x - (offset+30), bl_y + (offset-20)],   # bottom-left
+        [bl_x - (offset), bl_y + (offset)],   # bottom-left
         [br_x + offset, br_y + offset]    # bottom-right
     ])
 
