@@ -218,7 +218,7 @@ def load_and_process_image(image_file, side=900):
 
     # Threshold the image in HSV space to isolate the maze walls.
     lower_black = (0, 0, 0)
-    upper_black = (180, 34, 110)
+    upper_black = (180, 34, 150)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(hsv, lower_black, upper_black)
@@ -226,7 +226,7 @@ def load_and_process_image(image_file, side=900):
     # Invert so that walls are represented by zero-valued pixels.
     binary = cv2.bitwise_not(mask)
 
-    return binary
+    return binary, image
 
 
 def split_into_cells(binary_image, grid_size):
@@ -391,3 +391,92 @@ def display_occupancy_map(binary, cell_width, cell_height, grid_size):
     plt.ylim(height, 0)
     plt.title(f"{grid_size} × {grid_size} Maze Grid")
     plt.show()
+
+def draw_path_on_image(image, path, rows=9, cols=9):
+    """
+    Draw the calculated maze path on the perspective-transformed image.
+    """
+
+    output = image.copy()
+
+    height, width = output.shape[:2]
+
+    cell_width = width / cols
+    cell_height = height / rows
+
+    # ---------------------------------------------------------
+    # Calculate centre of each node
+    # ---------------------------------------------------------
+
+    points = []
+
+    for node_id in path:
+
+        row = node_id // cols
+        col = node_id % cols
+
+        x = int((col + 0.5) * cell_width)
+        y = int((row + 0.5) * cell_height)
+
+        points.append((x, y))
+
+    # ---------------------------------------------------------
+    # Draw path
+    # ---------------------------------------------------------
+
+    for i in range(len(points) - 1):
+
+        cv2.line(
+            output,
+            points[i],
+            points[i + 1],
+            (255, 0, 0),
+            5
+        )
+
+    # ---------------------------------------------------------
+    # Draw start and goal
+    # ---------------------------------------------------------
+
+    cv2.circle(
+        output,
+        points[0],
+        10,
+        (0, 255, 0),
+        -1
+    )
+
+    cv2.circle(
+        output,
+        points[-1],
+        10,
+        (255, 0, 0),
+        -1
+    )
+
+    return output
+
+def make_cells_black(binary, cell_ids, rows=9, cols=9):
+    """
+    Force selected cells in the binary maze image to completely black.
+    """
+
+    height, width = binary.shape[:2]
+
+    cell_height = height // rows
+    cell_width = width // cols
+
+    for node_id in cell_ids:
+
+        row = node_id // cols
+        col = node_id % cols
+
+        y1 = row * cell_height
+        y2 = (row + 1) * cell_height
+
+        x1 = col * cell_width
+        x2 = (col + 1) * cell_width
+
+        binary[y1:y2, x1:x2] = 0
+
+    return binary
