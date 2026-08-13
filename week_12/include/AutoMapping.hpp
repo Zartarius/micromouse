@@ -5,17 +5,22 @@
 #include "Misc.hpp"
 
 // MAZE_N_ROWS may be different to MAZE_N_COLS when testing
-#define MAZE_N_ROWS 9
-#define MAZE_N_COLS 9
-#define CELL_SIZE_MM 180.0f
+
 
 namespace mm {
+
+static constexpr uint8_t MAZE_N_ROWS = 9;
+static constexpr uint8_t MAZE_N_COLS = 9;
+static constexpr uint8_t NUM_CELLS = MAZE_N_ROWS * MAZE_N_COLS - 12;
 
 // Coordinates are (row, column), 0-indexed. Row increases southward,
 // column increases eastward. North points from (1, 0) to (0, 0).
 struct Coord {
-    uint8_t row, col;
+    uint8_t row : 4;
+    uint8_t col : 4;
+    // uint8_t row, col;
 };
+static_assert(sizeof(Coord) == sizeof(uint8_t));
 
 struct Cell {
     uint8_t valid_cell : 1;
@@ -92,6 +97,68 @@ void maze_setup(void) {
     robot_heading = maze.start_heading;
 }
 
+// Screen is 128x64px == 16x8 tiles (8x8px each). One tile per maze column
+// (MAZE_N_COLS <= 16); one tile per maze row, but MAZE_N_ROWS may exceed the
+// 8 available tile rows, so the window scrolls to keep the robot's current
+// row in view. The remaining tile columns to the right are used for the %
+// readout.
+static constexpr uint8_t MAZE_VIS_TILE_ROWS = 8;
+static constexpr uint8_t MAZE_VIS_TILE_COLS = MAZE_N_COLS;
+
+// Draws a coarse view of `maze` (visited vs. known-but-unvisited vs.
+// not-part-of-the-maze cells, plus the robot's current cell) over a window
+// of MAZE_VIS_TILE_ROWS rows scrolled to follow robot_pos.row, plus a %
+// mapped readout derived from maze.visited_count / NUM_CELLS. Not
+// wall-accurate, just "how much of the maze has been seen so far" at a
+// glance. Screen row 0 (top) is maze row `window_start`, i.e. (0, 0) is
+// top-left and column increases rightward, matching the (row, col)
+// convention above.
+void draw_maze_visualisation(void) {
+    auto& robot = GET_ROBOT();
+
+    int16_t max_start = (int16_t)MAZE_N_ROWS - (int16_t)MAZE_VIS_TILE_ROWS;
+    if (max_start < 0) max_start = 0;
+    int16_t window_start = (int16_t)robot_pos.row - (int16_t)(MAZE_VIS_TILE_ROWS / 2);
+    if (window_start < 0) window_start = 0;
+    if (window_start > max_start) window_start = max_start;
+
+    static const uint8_t TILE_BLANK[8]     = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    static const uint8_t TILE_UNVISITED[8] = {0x00, 0x7E, 0x42, 0x42, 0x42, 0x42, 0x7E, 0x00}; // hollow box
+    static const uint8_t TILE_VISITED[8]   = {0x00, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x00}; // filled box
+    static const uint8_t TILE_ROBOT[8]     = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // current cell
+
+    robot.oled.clear();
+
+    uint8_t row_buf[MAZE_VIS_TILE_COLS * 8];
+    for (uint8_t ty = 0; ty < MAZE_VIS_TILE_ROWS; ty++) {
+        uint8_t row = (uint8_t)window_start + ty;
+
+        for (uint8_t col = 0; col < MAZE_VIS_TILE_COLS; col++) {
+            const uint8_t *tile = TILE_BLANK;
+
+            if (row < MAZE_N_ROWS) {
+                const Cell& cell = maze.cells[row][col];
+                bool is_robot = (row == robot_pos.row and col == robot_pos.col);
+                if (is_robot) {
+                    tile = TILE_ROBOT;
+                } else if (cell.valid_cell) {
+                    tile = cell.visited ? TILE_VISITED : TILE_UNVISITED;
+                }
+            }
+
+            memcpy(&row_buf[col * 8], tile, 8);
+        }
+
+        robot.oled.drawTile(0, ty, MAZE_VIS_TILE_COLS, row_buf);
+    }
+
+    uint8_t percent = (uint8_t)((uint16_t)maze.visited_count * 100 / NUM_CELLS);
+    uint8_t text_col = MAZE_VIS_TILE_COLS + 1;
+    robot.oled.print(text_col, 0, "Mapped");
+    robot.oled.print(text_col, 1, "%3d%%", percent);
+    robot.oled.print(text_col, 3, "%d/%d", maze.visited_count, NUM_CELLS);
+}
+
 bool drive_to_neighbour(int8_t chosen_dir) {
     int8_t delta = (chosen_dir - robot_heading + 4) % 4;
     float rotation = 0.0f;
@@ -105,21 +172,24 @@ bool drive_to_neighbour(int8_t chosen_dir) {
     }
 
     if (rotation != 0.0f) {
-        robot_rotate(rotation, 1700, 100);
+        robot_rotate(rotation, 1400, 110);
     }
 
-    // Double check if wall in front
+    // Double check if wall in front. Guard with frontHasReading(): the
+    // sentinel -1 (no reading landed yet) otherwise always satisfies
+    // "<= 90" and reads as a false wall right after boot.
     auto& robot = GET_ROBOT();
     robot.lidar_system.update();
     bool wall_to_front = robot.lidar_system.readFront() <= 90;
     if (wall_to_front) {
-        robot_rotate(-rotation, 1700, 100);
+        robot_rotate(-rotation, 1400, 110);
         return false;
     }
 
     robot_heading = chosen_dir;
     // robot_drive_straight(CELL_SIZE_MM, 5000);
-    robot_drive_straight_with_lidars_no_profile(CELL_SIZE_MM, 5000, 100, true);
+    robot_drive_straight_with_lidars_no_profile_soft_start(CELL_SIZE_MM, 5000, 100, true);
+    // robot_drive_straight_with_lidars_no_profile(CELL_SIZE_MM, 5000, 100, true);
 
     return true;
 }
@@ -129,20 +199,24 @@ void maze_dfs(void) {
     auto& robot = GET_ROBOT();
 
     Coord current = maze.start_coord;
+    robot_pos = current;
     maze.cells[current.row][current.col].visited = 1;
     maze.visited_count++;
 
     while (true) {
-        static Stack<Coord, MAZE_N_ROWS * MAZE_N_COLS> dfs_stack;
+        static Stack<Coord, NUM_CELLS> dfs_stack;
 
         restart:
 
         robot.gyroscope.update();
         robot.lidar_system.update();
 
-        bool wall_to_front = robot.lidar_system.readFront() < 90;
-        bool wall_to_left = robot.lidar_system.readLeft() < 90;
-        bool wall_to_right = robot.lidar_system.readRight() < 90;
+        // Guard with HasReading(): the -1 "no reading yet" sentinel
+        // otherwise always satisfies "< 90" and reads as a false wall on
+        // every side right after boot, before any sensor has a real sample.
+        bool wall_to_front = robot.lidar_system.readFront() <= 90;
+        bool wall_to_left = robot.lidar_system.readLeft() <= 90;
+        bool wall_to_right = robot.lidar_system.readRight() <= 90;
 
         if (wall_to_front) maze.cells[current.row][current.col].walls |= (1 << robot_heading);
         if (wall_to_left) maze.cells[current.row][current.col].walls |= (1 << ((robot_heading + 3) % 4));
@@ -177,9 +251,17 @@ void maze_dfs(void) {
             if (drive_to_neighbour(chosen_dir)) {
                 current.row += d_row[chosen_dir];
                 current.col += d_col[chosen_dir];
+                robot_pos = current;
 
                 maze.cells[current.row][current.col].visited = 1;
                 maze.visited_count++;
+
+                // if (rand() % 5 == 0) {
+                //     print_victory_flag();
+                //     delayWhileUpdating(500);
+                // }
+
+                draw_maze_visualisation();
             } else {
                 maze.cells[current.row][current.col].walls |= (1 << chosen_dir);
                 (void)dfs_stack.pop();
@@ -188,7 +270,7 @@ void maze_dfs(void) {
         } else {
             if (dfs_stack.top == 0) {
                 robot.oled.clear();
-                robot.oled.print(0, 0, "Done mapping.");
+                robot.oled.print(0, 0, "Done mapping.\n");
                 break;
             }
 
@@ -217,6 +299,7 @@ void maze_dfs(void) {
             }
 
             current = back;
+            robot_pos = current;
         }
     }
 }
@@ -235,7 +318,7 @@ void shortest_path(const Coord& start, const Coord& end) {
         }
     }
 
-    static RingBuffer<uint8_t, MAZE_N_ROWS * MAZE_N_COLS> bfs_queue;
+    static RingBuffer<uint8_t, NUM_CELLS> bfs_queue;
     bfs_queue.clear();
     bfs_queue.push(end.row * MAZE_N_COLS + end.col);
     dir_toward_end[end.row][end.col] = -2; // reached, but no onward direction needed

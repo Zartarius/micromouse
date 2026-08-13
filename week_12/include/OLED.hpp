@@ -54,6 +54,13 @@ public:
         display.clear();
     }
 
+    // x, y are in 8x8-pixel tile coordinates (0-15, 0-7 on a 128x64 screen).
+    // tile_ptr must point to cnt*8 bytes: one byte per pixel column (8
+    // columns per tile, tiles laid out left-to-right), bit0 = topmost pixel.
+    void drawTile(uint8_t x, uint8_t y, uint8_t cnt, const uint8_t *tile_ptr) {
+        display.drawTile(x, y, cnt, const_cast<uint8_t *>(tile_ptr));
+    }
+
     // U8X8_SSD1306_128X64_NONAME_HW_I2C& raw() {
     //     return display;
     // }
