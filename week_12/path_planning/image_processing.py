@@ -241,14 +241,14 @@ def process_image(image):
     """
 
     # Threshold the image in HSV space to isolate the maze walls.
-    lower_black = (0, 0, 0)
-    upper_black = (180, 34, 150)
+    lower_black = (0, 0, 130)
+    upper_black = (180, 255, 255)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(hsv, lower_black, upper_black)
 
     # Invert so that walls are represented by zero-valued pixels.
-    binary = cv2.bitwise_not(mask)
+    binary = mask
 
     return binary
 
