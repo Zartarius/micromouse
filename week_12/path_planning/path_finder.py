@@ -22,6 +22,7 @@ def command_optimal_path(graph, start, goal, start_direction="N", cols=9):
         commands
     """
 
+    print("xyz")
     directions = ["N", "E", "S", "W"]
 
     # ---------------------------------------------------------
@@ -71,7 +72,7 @@ def command_optimal_path(graph, start, goal, start_direction="N", cols=9):
             current_node,
             current_direction
         )
-
+        
         # Ignore outdated entries in the priority queue
         if current_cost != cost[current_state]:
             continue
@@ -79,9 +80,8 @@ def command_optimal_path(graph, start, goal, start_direction="N", cols=9):
         # -----------------------------------------------------
         # Goal reached
         # -----------------------------------------------------
-
+        print("bb")
         if current_node == goal:
-
             goal_state = current_state
             break
 
@@ -90,7 +90,6 @@ def command_optimal_path(graph, start, goal, start_direction="N", cols=9):
         # -----------------------------------------------------
 
         for neighbour in graph.get_neighbors(current_node):
-
             current_row = current_node // cols
             current_col = current_node % cols
 
