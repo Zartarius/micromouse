@@ -21,8 +21,6 @@ def command_optimal_path(graph, start, goal, start_direction="N", cols=9):
         path
         commands
     """
-
-    print("xyz")
     directions = ["N", "E", "S", "W"]
 
     # ---------------------------------------------------------
@@ -254,7 +252,6 @@ def command_optimal_path(graph, start, goal, start_direction="N", cols=9):
         commands.extend(
             parent_commands[state]
         )
-
     return path, commands
 
 
@@ -349,7 +346,7 @@ def path_to_commands(path, start_direction="N", cols=9):
     return commands
 
 
-def command_optimal_path_to_obstacles(graph, start, course_top_left, course_width, start_direction="N", cols=9):
+def command_optimal_path_to_obstacles(graph, start, course_top_left, course_width, start_direction='N', cols=9):
     """
     Find the path from start to goal that requires the minimum
     number of robot commands.
@@ -369,6 +366,13 @@ def command_optimal_path_to_obstacles(graph, start, course_top_left, course_widt
         path
         commands
     """
+
+
+    obstacle_nodes = find_obst_course_nodes(
+        course_top_left,
+        course_width,
+        cols
+    )
 
 
     obstacle_nodes = find_obst_course_nodes(course_top_left, course_width, cols)
