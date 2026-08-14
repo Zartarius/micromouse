@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <Wire.h>
 #include <VL6180X.h>
 
 namespace mm {
@@ -25,7 +26,9 @@ public:
         config[LIDAR_RIGHT] = right;
     }
 
-    void initAll(void) {
+    // Returns the number of sensors that came up successfully.
+    // Call Wire.begin() before this.
+    uint8_t initAll(void) {
         for (uint8_t i = 0; i < LIDAR_COUNT; i++) {
             pinMode(config[i].en_pin, OUTPUT);
             digitalWrite(config[i].en_pin, LOW);
@@ -33,16 +36,22 @@ public:
             sensors[i].last_mm = -1;
             sensors[i].filtered_mm = -1.0f;
             sensors[i].has_reading = false;
+            sensors[i].online = false;
             sensors[i].last_update_ms = 0;
+            sensors[i].next_bringup_ms = 0;
         }
 
-        delay(10);
+        // Hold every sensor in reset long enough that they all definitely
+        // drop back to the default address and come up fresh-out-of-reset.
+        // A soft MCU reset does not power-cycle the sensors, so this is the
+        // only thing that clears addresses assigned by a previous run.
+        delay(50);
 
+        uint8_t ok = 0;
         for (uint8_t i = 0; i < LIDAR_COUNT; i++) {
-            initSingle(i);
-            sensors[i].device.startRangeContinuous(RANGING_PERIOD_MS);
-            sensors[i].last_update_ms = millis();
+            if (bringUp(i, BRINGUP_ATTEMPTS)) ok++;
         }
+        return ok;
     }
 
     void update(void) {
@@ -51,124 +60,139 @@ public:
         }
     }
 
-    int readFront() {
-        return sensors[LIDAR_FRONT].last_mm;
-    }
+    int readFront() { return sensors[LIDAR_FRONT].last_mm; }
+    int readLeft()  { return sensors[LIDAR_LEFT].last_mm; }
+    int readRight() { return sensors[LIDAR_RIGHT].last_mm; }
+    int read(LidarIndex i) { return sensors[i].last_mm; }
 
-    int readLeft() {
-        return sensors[LIDAR_LEFT].last_mm;
-    }
+    bool frontHasReading() const { return sensors[LIDAR_FRONT].has_reading; }
+    bool leftHasReading()  const { return sensors[LIDAR_LEFT].has_reading; }
+    bool rightHasReading() const { return sensors[LIDAR_RIGHT].has_reading; }
+    bool hasReading(LidarIndex i) const { return sensors[i].has_reading; }
 
-    int readRight() {
-        return sensors[LIDAR_RIGHT].last_mm;
-    }
+    // True once the sensor has been addressed and verified on the bus.
+    bool isOnline(LidarIndex i) const { return sensors[i].online; }
 
-    int read(LidarIndex i) {
-        return sensors[i].last_mm;
-    }
-
-    bool frontHasReading() const {
-        return sensors[LIDAR_FRONT].has_reading;
-    }
-
-    bool leftHasReading() const {
-        return sensors[LIDAR_LEFT].has_reading;
-    }
-
-    bool rightHasReading() const {
-        return sensors[LIDAR_RIGHT].has_reading;
-    }
-
-    bool hasReading(LidarIndex i) const {
-        return sensors[i].has_reading;
-    }
-
-    bool frontTimedOut() {
-        return sensors[LIDAR_FRONT].device.timeoutOccurred();
-    }
-
-    bool leftTimedOut() {
-        return sensors[LIDAR_LEFT].device.timeoutOccurred();
-    }
-
-    bool rightTimedOut() {
-        return sensors[LIDAR_RIGHT].device.timeoutOccurred();
-    }
-
-    bool timedOut(LidarIndex i) {
-        return sensors[i].device.timeoutOccurred();
-    }
+    bool frontTimedOut() { return sensors[LIDAR_FRONT].device.timeoutOccurred(); }
+    bool leftTimedOut()  { return sensors[LIDAR_LEFT].device.timeoutOccurred(); }
+    bool rightTimedOut() { return sensors[LIDAR_RIGHT].device.timeoutOccurred(); }
+    bool timedOut(LidarIndex i) { return sensors[i].device.timeoutOccurred(); }
 
 private:
 
-    static constexpr uint8_t RANGING_PERIOD_MS = 50;
+    static constexpr uint8_t  RANGING_PERIOD_MS  = 50;
     static constexpr unsigned long STALE_TIMEOUT_MS = 250;
+
+    // Address every VL6180X wakes up at after a reset.
+    static constexpr uint8_t DEFAULT_ADDR = 0x29;
+    // IDENTIFICATION__MODEL_ID always reads back as this on a live chip.
+    static constexpr uint8_t MODEL_ID     = 0xB4;
+
+    static constexpr uint8_t BRINGUP_ATTEMPTS = 3;
+    // Runtime recovery only gets one attempt per pass so update() never
+    // stalls the control loop for hundreds of ms; this is how long to wait
+    // before trying a dead sensor again.
+    static constexpr unsigned long RECOVER_BACKOFF_MS = 500;
+
     // Exponential moving average weight for fresh samples: higher = more
     // responsive/less smoothing, lower = smoother/more lag. Readings only
     // actually refresh every RANGING_PERIOD_MS, so smoothing too heavily
     // (low alpha) adds real-world lag to wall-centering reactions on top
-    // of that - 0.4 knocks down single-sample jitter without holding
-    // onto stale values for long.
-    static constexpr float SMOOTHING_ALPHA = 1.0f;
+    // of that.
+    static constexpr float SMOOTHING_ALPHA = 0.4f;
 
     struct Sensor {
         VL6180X device;
         int last_mm = -1;
         float filtered_mm = -1.0f;
         bool has_reading = false;
+        bool online = false;
         unsigned long last_update_ms = 0;
+        unsigned long next_bringup_ms = 0;
     };
 
     Config config[LIDAR_COUNT];
     Sensor sensors[LIDAR_COUNT];
 
-    void initSingle(uint8_t i) {
-        digitalWrite(config[i].en_pin, HIGH);
-        delay(50);
+    // Reset one sensor, re-address it, and verify every step. Safe to call
+    // both at startup and mid-run. On failure the sensor is left held in
+    // reset so it cannot sit on the default address and collide with the
+    // others - that collision is what turns one bad sensor into three.
+    bool bringUp(uint8_t i, uint8_t attempts) {
+        Sensor& s = sensors[i];
+        VL6180X& lidar = s.device;
 
-        VL6180X& lidar = sensors[i].device;
+        s.online = false;
+        s.has_reading = false;
+        s.last_mm = -1;
+        s.filtered_mm = -1.0f;
 
-        lidar.init();
-        lidar.setAddress(config[i].address);
-        lidar.configureDefault();
+        for (uint8_t attempt = 0; attempt < attempts; attempt++) {
+            digitalWrite(config[i].en_pin, LOW);
+            delay(20);
 
-        lidar.writeReg(
-            VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME,
-            0x14
-        );
+            // The chip is now back at DEFAULT_ADDR, but the driver object
+            // still has whatever address we last assigned it cached. Point
+            // it back at the default. The register write goes out to the
+            // stale address and NACKs - nothing is listening there - which
+            // is harmless; what we want is the object-side side effect.
+            lidar.setAddress(DEFAULT_ADDR);
+            lidar.setTimeout(30);
 
-        lidar.setTimeout(30);
-    }
+            digitalWrite(config[i].en_pin, HIGH);
+            delay(20);   // datasheet only needs ~400us, be generous
 
-    void recoverSensor(uint8_t i) {
+            // Is anything actually there before we start configuring it?
+            if (lidar.readReg(VL6180X::IDENTIFICATION__MODEL_ID) != MODEL_ID) {
+                continue;
+            }
+
+            lidar.init();
+            lidar.configureDefault();
+            lidar.writeReg(VL6180X::SYSRANGE__MAX_CONVERGENCE_TIME, 0x14);
+
+            if (lidar.timeoutOccurred()) continue;
+
+            lidar.setAddress(config[i].address);
+            delay(2);
+
+            // Confirm it answers at the NEW address before moving on to the
+            // next sensor. Without this a silently failed reassignment
+            // leaves this chip on DEFAULT_ADDR, and the next sensor boots
+            // onto the same address.
+            if (lidar.readReg(VL6180X::IDENTIFICATION__MODEL_ID) != MODEL_ID) {
+                continue;
+            }
+
+            lidar.startRangeContinuous(RANGING_PERIOD_MS);
+            if (lidar.timeoutOccurred()) continue;
+
+            s.last_update_ms = millis();
+            s.online = true;
+            return true;
+        }
+
         digitalWrite(config[i].en_pin, LOW);
-        delay(5);
-
-        initSingle(i);
-
-        sensors[i].device.startRangeContinuous(RANGING_PERIOD_MS);
-        sensors[i].last_update_ms = millis();
-        sensors[i].has_reading = false;
-        sensors[i].last_mm = -1;
-        sensors[i].filtered_mm = -1.0f;
+        return false;
     }
 
     void pollOne(uint8_t i) {
         Sensor& s = sensors[i];
 
+        if (!s.online) {
+            if ((long)(millis() - s.next_bringup_ms) >= 0) {
+                if (!bringUp(i, 1)) {
+                    s.next_bringup_ms = millis() + RECOVER_BACKOFF_MS;
+                }
+            }
+            return;
+        }
+
         uint8_t status =
-            s.device.readReg(
-                VL6180X::RESULT__INTERRUPT_STATUS_GPIO
-            );
+            s.device.readReg(VL6180X::RESULT__INTERRUPT_STATUS_GPIO);
 
-        uint8_t range_status = status & 0x07;
-
-        if (range_status == 0x04) {
-            uint8_t range =
-                s.device.readReg(
-                    VL6180X::RESULT__RANGE_VAL
-                );
-
+        if (!s.device.timeoutOccurred() && (status & 0x07) == 0x04) {
+            uint8_t range = s.device.readReg(VL6180X::RESULT__RANGE_VAL);
             int raw_mm = static_cast<int>(range);
 
             // EMA smoothing. Snap straight to the first real reading
@@ -185,19 +209,17 @@ private:
             s.has_reading = true;
             s.last_update_ms = millis();
 
-            s.device.writeReg(
-                VL6180X::SYSTEM__INTERRUPT_CLEAR,
-                0x07
-            );
-
+            s.device.writeReg(VL6180X::SYSTEM__INTERRUPT_CLEAR, 0x07);
             return;
         }
 
         if (millis() - s.last_update_ms > STALE_TIMEOUT_MS) {
-            recoverSensor(i);
+            s.online = false;
+            s.has_reading = false;
+            s.last_mm = -1;
+            s.next_bringup_ms = millis();   // one immediate retry, then back off
         }
     }
 };
 
 }
-

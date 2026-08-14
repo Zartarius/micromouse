@@ -50,7 +50,7 @@ private:
         right_motor(MotorSide::RIGHT, RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR_PIN, RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN),
         gyroscope(),
         rotation_controller(6.7f, 0.6f, 0.45f),
-        position_controller(55.0f, 2.0f, 0.3f, 15.0f),
+        position_controller(50.0f, 2.0f, 3.8f, 5.0f),
         // 55, 2, 15, 15 very accurate but slow
         heading_controller(15.0f, 0.0f, 0.5f),
         lidar_system((LidarSystem::Config) {.en_pin = LIDARFRONT_EN_PIN, .address = LIDARFRONT_ADD},
