@@ -90,7 +90,7 @@ void maze_setup(void) {
     maze.start_coord = {1, 1};
     maze.start_heading = 2;
 
-    maze.goal_coord = {7, 7};
+    maze.goal_coord = {4, 7};
 
     maze.visited_count = 0;
 
@@ -105,14 +105,15 @@ void maze_setup(void) {
 static constexpr uint8_t MAZE_VIS_TILE_ROWS = 8;
 static constexpr uint8_t MAZE_VIS_TILE_COLS = MAZE_N_COLS;
 
-// Draws a coarse view of `maze` (visited vs. known-but-unvisited vs.
-// not-part-of-the-maze cells, plus the robot's current cell) over a window
-// of MAZE_VIS_TILE_ROWS rows scrolled to follow robot_pos.row, plus a %
-// mapped readout derived from maze.visited_count / NUM_CELLS. Not
-// wall-accurate, just "how much of the maze has been seen so far" at a
-// glance. Screen row 0 (top) is maze row `window_start`, i.e. (0, 0) is
-// top-left and column increases rightward, matching the (row, col)
-// convention above.
+// Draws a coarse view of `maze` showing the walls mapped so far (not
+// visited-vs-unvisited fill), plus a marker on the robot's current cell,
+// over a window of MAZE_VIS_TILE_ROWS rows scrolled to follow
+// robot_pos.row, plus a % mapped readout derived from maze.visited_count /
+// NUM_CELLS. Each cell is an 8x8 tile; wall bits (0=N,1=E,2=S,3=W) are drawn
+// as the corresponding edge of the tile (top/bottom/left/right), so
+// adjacent cells' shared walls line up into a real maze outline. Screen row
+// 0 (top) is maze row `window_start`, i.e. (0, 0) is top-left and column
+// increases rightward, matching the (row, col) convention above.
 void draw_maze_visualisation(void) {
     auto& robot = GET_ROBOT();
 
@@ -122,11 +123,6 @@ void draw_maze_visualisation(void) {
     if (window_start < 0) window_start = 0;
     if (window_start > max_start) window_start = max_start;
 
-    static const uint8_t TILE_BLANK[8]     = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    static const uint8_t TILE_UNVISITED[8] = {0x00, 0x7E, 0x42, 0x42, 0x42, 0x42, 0x7E, 0x00}; // hollow box
-    static const uint8_t TILE_VISITED[8]   = {0x00, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x7E, 0x00}; // filled box
-    static const uint8_t TILE_ROBOT[8]     = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // current cell
-
     robot.oled.clear();
 
     uint8_t row_buf[MAZE_VIS_TILE_COLS * 8];
@@ -134,15 +130,24 @@ void draw_maze_visualisation(void) {
         uint8_t row = (uint8_t)window_start + ty;
 
         for (uint8_t col = 0; col < MAZE_VIS_TILE_COLS; col++) {
-            const uint8_t *tile = TILE_BLANK;
+            uint8_t tile[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 
             if (row < MAZE_N_ROWS) {
                 const Cell& cell = maze.cells[row][col];
-                bool is_robot = (row == robot_pos.row and col == robot_pos.col);
-                if (is_robot) {
-                    tile = TILE_ROBOT;
-                } else if (cell.valid_cell) {
-                    tile = cell.visited ? TILE_VISITED : TILE_UNVISITED;
+
+                if (cell.valid_cell) {
+                    // Byte index = pixel column (x), bit index = pixel row (y).
+                    if (cell.walls & (1 << 0)) for (uint8_t x = 0; x < 8; x++) tile[x] |= 0x01; // N: top edge
+                    if (cell.walls & (1 << 2)) for (uint8_t x = 0; x < 8; x++) tile[x] |= 0x80; // S: bottom edge
+                    if (cell.walls & (1 << 3)) tile[0] = 0xFF; // W: left edge
+                    if (cell.walls & (1 << 1)) tile[7] = 0xFF; // E: right edge
+
+                    bool is_robot = (row == robot_pos.row and col == robot_pos.col);
+                    if (is_robot) {
+                        // Filled block in the middle marks the robot's current cell.
+                        tile[3] |= 0x3C;
+                        tile[4] |= 0x3C;
+                    }
                 }
             }
 
@@ -182,13 +187,13 @@ bool drive_to_neighbour(int8_t chosen_dir) {
     robot.lidar_system.update();
     bool wall_to_front = robot.lidar_system.readFront() <= 90;
     if (wall_to_front) {
-        robot_rotate(-rotation, 1400, 110);
+        robot_rotate(-rotation, 1600, 110);
         return false;
     }
 
     robot_heading = chosen_dir;
     // robot_drive_straight(CELL_SIZE_MM, 5000);
-    robot_drive_straight_with_lidars_no_profile_soft_start(CELL_SIZE_MM, 5000, 100, true);
+    robot_drive_straight_with_lidars_no_profile_soft_start(CELL_SIZE_MM, 5000, 120, true);
     // robot_drive_straight_with_lidars_no_profile(CELL_SIZE_MM, 5000, 100, true);
 
     return true;
@@ -202,6 +207,8 @@ void maze_dfs(void) {
     robot_pos = current;
     maze.cells[current.row][current.col].visited = 1;
     maze.visited_count++;
+
+    draw_maze_visualisation();
 
     while (true) {
         static Stack<Coord, NUM_CELLS> dfs_stack;

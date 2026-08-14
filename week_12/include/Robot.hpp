@@ -23,6 +23,7 @@ public:
     PIDController rotation_controller;
     PIDController position_controller;
     PIDController heading_controller;
+    PIDController wall_centering_controller;
     LidarSystem lidar_system;
     OLED oled;
     const float wheel_radius_mm;
@@ -50,9 +51,11 @@ private:
         right_motor(MotorSide::RIGHT, RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR_PIN, RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN),
         gyroscope(),
         rotation_controller(6.7f, 0.6f, 0.45f),
-        position_controller(50.0f, 2.0f, 3.8f, 5.0f),
+        position_controller(35.0f, 0.0f, 5.0f, 5.0f),
         // 55, 2, 15, 15 very accurate but slow
+        // 50.0f, 2.0f, 3.8f, 5.0f
         heading_controller(15.0f, 0.0f, 0.5f),
+        wall_centering_controller(0.20f, 0.0f, 0.05f),
         lidar_system((LidarSystem::Config) {.en_pin = LIDARFRONT_EN_PIN, .address = LIDARFRONT_ADD},
                     (LidarSystem::Config) {.en_pin = LIDARLEFT_EN_PIN, .address = LIDARLEFT_ADD},
                     (LidarSystem::Config) {.en_pin = LIDARRIGHT_EN_PIN, .address = LIDARRIGHT_ADD}),

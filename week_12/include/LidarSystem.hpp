@@ -99,7 +99,7 @@ private:
     // actually refresh every RANGING_PERIOD_MS, so smoothing too heavily
     // (low alpha) adds real-world lag to wall-centering reactions on top
     // of that.
-    static constexpr float SMOOTHING_ALPHA = 0.4f;
+    static constexpr float SMOOTHING_ALPHA = 0.25f;
 
     struct Sensor {
         VL6180X device;
