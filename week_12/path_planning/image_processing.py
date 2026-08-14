@@ -217,6 +217,30 @@ def load_and_process_image(image_file, side=1620):
     )
 
     # Threshold the image in HSV space to isolate the maze walls.
+    lower_black = (0, 0, 130)
+    upper_black = (180, 255, 255)
+
+    hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+    mask = cv2.inRange(hsv, lower_black, upper_black)
+
+    # Invert so that walls are represented by zero-valued pixels.
+    binary = mask
+
+    return binary, image
+
+def process_image(image):
+    """
+    Apply an HSV mask to isolate the maze walls and return a binary
+    occupancy image.
+
+    Input:
+        image - RGB image
+
+    Output:
+        binary image (uint8), walls represented by zero-valued pixels
+    """
+
+    # Threshold the image in HSV space to isolate the maze walls.
     lower_black = (0, 0, 0)
     upper_black = (180, 34, 150)
 
@@ -226,8 +250,7 @@ def load_and_process_image(image_file, side=1620):
     # Invert so that walls are represented by zero-valued pixels.
     binary = cv2.bitwise_not(mask)
 
-    return binary, image
-
+    return binary
 
 def split_into_cells(binary_image, grid_size):
     """
