@@ -129,7 +129,7 @@ def detect_corner_markers(image):
     tr_x, tr_y = centres["top_right"]
     bl_x, bl_y = centres["bottom_left"]
     br_x, br_y = centres["bottom_right"]
-    offset = 90
+    offset = 60
     source_points = np.float32([
         [tl_x - offset, tl_y - offset],   # top-left
         [tr_x + offset, tr_y - offset],   # top-right
@@ -526,109 +526,149 @@ def extract_obstacle_area(transformed_image):
     return transformed_image[y1:y2, x1:x2]
 
 def create_obstacle_occupancy_map(
-    transformed_image,
-    threshold=100,
-    min_area=400,
-    buffer_size=90
+    binary_image,
+    graph,
+    rows,
+    cols,
+    top_left,
+    obstacle_cells=5,
+    obstacle_buffer=40,
+    wall_buffer=45,
+    min_area=500,
+    edge_margin=50,
+    output_size=900
 ):
     """
-    Create a pixel-level occupancy map for the fixed 5x5
-    obstacle area.
+    Create a pixel-level occupancy map for the obstacle course.
 
     0 = free space
     1 = obstacle / buffered obstacle
 
-    Obstacles smaller than min_area are discarded.
+    The obstacle course is defined by a square block of
+    `obstacle_cells x obstacle_cells` cells starting at `top_left`.
 
-    buffer_size:
-        Thickness of safety buffer around each obstacle,
-        in pixels.
+    Parameters
+    ----------
+    binary_image : numpy.ndarray
+        Original binary/transformed image.
+
+    graph : dict
+        Maze graph containing the detected wall information.
+
+    rows, cols : int
+        Number of maze rows and columns.
+
+    top_left : tuple
+        (row, col) of the top-left obstacle-course cell.
+
+    obstacle_cells : int
+        Number of cells forming the obstacle course.
+
+    obstacle_buffer : int
+        Safety buffer around detected physical obstacles.
+
+    wall_buffer : int
+        Safety buffer around maze walls.
+
+    min_area : int
+        Minimum contour area to be considered an obstacle.
+
+    edge_margin : int
+        Additional margin around the boundary of the obstacle course.
+
+    output_size : int
+        Final square occupancy-map size in pixels.
     """
 
     # ---------------------------------------------------------
     # 1. Image dimensions
     # ---------------------------------------------------------
 
-    height, width = transformed_image.shape[:2]
+    height, width = binary_image.shape[:2]
 
     # ---------------------------------------------------------
-    # 2. 9x9 cell dimensions
+    # 2. Maze cell dimensions
     # ---------------------------------------------------------
 
-    cell_width = width / 9
-    cell_height = height / 9
+    cell_width = width / cols
+    cell_height = height / rows
 
     # ---------------------------------------------------------
-    # 3. Fixed 5x5 obstacle area
-    #
-    # Top-left     = (3,1)
-    # Bottom-right = (7,5)
+    # 3. Obstacle-course boundaries
     # ---------------------------------------------------------
 
-    x1 = int(3 * cell_width)
-    y1 = int(1 * cell_height)
+    top_row, left_col = top_left
 
-    x2 = int(8 * cell_width)
-    y2 = int(6 * cell_height)
+    x1 = int(left_col * cell_width)
+    y1 = int(top_row * cell_height)
 
-    # ---------------------------------------------------------
-    # 4. Crop obstacle area
-    # ---------------------------------------------------------
-
-    obstacle_area = transformed_image[
-        y1:y2,
-        x1:x2
-    ]
+    x2 = int((left_col + obstacle_cells) * cell_width)
+    y2 = int((top_row + obstacle_cells) * cell_height)
 
     # ---------------------------------------------------------
-    # 5. Convert RGB -> grayscale
+    # 4. Crop obstacle course
     # ---------------------------------------------------------
 
-    gray = cv2.cvtColor(
+    obstacle_area = binary_image[y1:y2, x1:x2].copy()
+
+    # ---------------------------------------------------------
+    # 5. Resize to requested output size
+    # ---------------------------------------------------------
+
+    obstacle_area = cv2.resize(
         obstacle_area,
-        cv2.COLOR_RGB2GRAY
+        (output_size, output_size),
+        interpolation=cv2.INTER_NEAREST
     )
 
     # ---------------------------------------------------------
-    # 6. Detect black pixels
+    # 6. Convert to grayscale if necessary
     # ---------------------------------------------------------
 
-    mask = np.zeros_like(
+    if len(obstacle_area.shape) == 3:
+
+        gray = cv2.cvtColor(
+            obstacle_area,
+            cv2.COLOR_BGR2GRAY
+        )
+
+    else:
+
+        gray = obstacle_area.copy()
+
+    # ---------------------------------------------------------
+    # 7. Detect physical obstacles
+    # ---------------------------------------------------------
+
+    obstacle_mask = np.zeros_like(
         gray,
         dtype=np.uint8
     )
 
-    mask[gray < threshold] = 255
+    obstacle_mask[gray < 100] = 255
 
     # ---------------------------------------------------------
-    # 7. Find connected components
+    # 8. Find obstacle contours
     # ---------------------------------------------------------
 
-    result = cv2.findContours(
-        mask,
+    contours, _ = cv2.findContours(
+        obstacle_mask,
         cv2.RETR_EXTERNAL,
         cv2.CHAIN_APPROX_SIMPLE
     )
 
-    if len(result) == 2:
-        contours = result[0]
-    else:
-        contours = result[1]
-
     # ---------------------------------------------------------
-    # 8. Create occupancy map
+    # 9. Create empty occupancy map
     # ---------------------------------------------------------
 
-    occupancy_map = np.zeros_like(
-        gray,
+    occupancy_map = np.zeros(
+        (output_size, output_size),
         dtype=np.uint8
     )
 
     # ---------------------------------------------------------
-    # 9. Keep obstacles >= 400 px²
+    # 10. Keep only sufficiently large obstacles
     # ---------------------------------------------------------
-
-    valid_contours = []
 
     for contour in contours:
 
@@ -636,58 +676,76 @@ def create_obstacle_occupancy_map(
 
         if area >= min_area:
 
-            valid_contours.append(contour)
+            cv2.drawContours(
+                occupancy_map,
+                [contour],
+                -1,
+                1,
+                thickness=cv2.FILLED
+            )
 
     # ---------------------------------------------------------
-    # 10. Draw valid obstacles
+    # 11. Buffer physical obstacles
     # ---------------------------------------------------------
 
-    for contour in valid_contours:
+    if obstacle_buffer > 0:
 
-        cv2.drawContours(
-            occupancy_map,
-            [contour],
-            -1,
-            1,
-            thickness=cv2.FILLED
+        kernel_size = (
+            2 * obstacle_buffer + 1
         )
 
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE,
+            (kernel_size, kernel_size)
+        )
+
+        obstacle_binary = (
+            occupancy_map * 255
+        ).astype(np.uint8)
+
+        obstacle_binary = cv2.dilate(
+            obstacle_binary,
+            kernel,
+            iterations=1
+        )
+
+        occupancy_map[
+            obstacle_binary > 0
+        ] = 1
+
     # ---------------------------------------------------------
-    # 11. Create 90-pixel buffer
+    # 12. Add boundary / edge margin
     # ---------------------------------------------------------
 
-    # Convert occupancy map to binary image
-    obstacle_mask = (
-        occupancy_map * 255
+    if edge_margin > 0:
+
+        occupancy_map[
+            :edge_margin,
+            :
+        ] = 1
+
+        occupancy_map[
+            -edge_margin:,
+            :
+        ] = 1
+
+        occupancy_map[
+            :,
+            :edge_margin
+        ] = 1
+
+        occupancy_map[
+            :,
+            -edge_margin:
+        ] = 1
+
+    # ---------------------------------------------------------
+    # 13. Return 0/1 occupancy map
+    # ---------------------------------------------------------
+
+    occupancy_map = (
+        occupancy_map > 0
     ).astype(np.uint8)
-
-    # Circular kernel gives an approximately circular
-    # buffer around the obstacles.
-    kernel_size = 2 * buffer_size + 1
-
-    kernel = cv2.getStructuringElement(
-        cv2.MORPH_ELLIPSE,
-        (kernel_size, kernel_size)
-    )
-
-    buffered_mask = cv2.dilate(
-        obstacle_mask,
-        kernel,
-        iterations=1
-    )
-
-    # ---------------------------------------------------------
-    # 12. Convert back to 0/1 occupancy
-    # ---------------------------------------------------------
-
-    occupancy_map = np.zeros_like(
-        buffered_mask,
-        dtype=np.uint8
-    )
-
-    occupancy_map[
-        buffered_mask > 0
-    ] = 1
 
     return occupancy_map
 
