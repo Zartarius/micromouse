@@ -79,8 +79,8 @@ def detect_corner_markers(image):
 
     colours = {
         "top_left": {
-            "lower": (140, 20, 130),
-            "upper": (179, 41, 162)
+            "lower": (140, 30, 130),
+            "upper": (179, 60, 165)
         },
 
         "top_right": {
@@ -129,7 +129,7 @@ def detect_corner_markers(image):
     tr_x, tr_y = centres["top_right"]
     bl_x, bl_y = centres["bottom_left"]
     br_x, br_y = centres["bottom_right"]
-    offset = 70
+    offset = 90
     source_points = np.float32([
         [tl_x - offset, tl_y - offset],   # top-left
         [tr_x + offset, tr_y - offset],   # top-right
