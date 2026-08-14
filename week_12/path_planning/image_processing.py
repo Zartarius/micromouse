@@ -84,7 +84,7 @@ def detect_corner_markers(image):
         },
 
         "top_right": {
-            "lower": (0, 135, 0),
+            "lower": (0, 135, 134),
             "upper": (179, 209, 255)
         },
 
@@ -139,7 +139,7 @@ def detect_corner_markers(image):
 
     return source_points
 
-def load_and_process_image(image_file, side=900):
+def load_and_process_image(image_file, side=1620):
     """
     Load the camera image, apply perspective correction and convert
     the maze into a binary occupancy image.
@@ -480,3 +480,518 @@ def make_cells_black(binary, cell_ids, rows=9, cols=9):
         binary[y1:y2, x1:x2] = 0
 
     return binary
+
+def extract_obstacle_area(transformed_image):
+    """
+    Extract the fixed 5x5 obstacle area.
+
+    Top-left internal cell     : (3, 1)
+    Bottom-right internal cell: (7, 5)
+    """
+
+    height, width = transformed_image.shape[:2]
+
+    cell_width = width / 9
+    cell_height = height / 9
+
+    x1 = int(3 * cell_width)
+    y1 = int(1 * cell_height)
+
+    x2 = int(8 * cell_width)
+    y2 = int(6 * cell_height)
+
+    return transformed_image[y1:y2, x1:x2]
+
+def create_obstacle_occupancy_map(
+    transformed_image,
+    threshold=100,
+    min_area=400,
+    buffer_size=90
+):
+    """
+    Create a pixel-level occupancy map for the fixed 5x5
+    obstacle area.
+
+    0 = free space
+    1 = obstacle / buffered obstacle
+
+    Obstacles smaller than min_area are discarded.
+
+    buffer_size:
+        Thickness of safety buffer around each obstacle,
+        in pixels.
+    """
+
+    # ---------------------------------------------------------
+    # 1. Image dimensions
+    # ---------------------------------------------------------
+
+    height, width = transformed_image.shape[:2]
+
+    # ---------------------------------------------------------
+    # 2. 9x9 cell dimensions
+    # ---------------------------------------------------------
+
+    cell_width = width / 9
+    cell_height = height / 9
+
+    # ---------------------------------------------------------
+    # 3. Fixed 5x5 obstacle area
+    #
+    # Top-left     = (3,1)
+    # Bottom-right = (7,5)
+    # ---------------------------------------------------------
+
+    x1 = int(3 * cell_width)
+    y1 = int(1 * cell_height)
+
+    x2 = int(8 * cell_width)
+    y2 = int(6 * cell_height)
+
+    # ---------------------------------------------------------
+    # 4. Crop obstacle area
+    # ---------------------------------------------------------
+
+    obstacle_area = transformed_image[
+        y1:y2,
+        x1:x2
+    ]
+
+    # ---------------------------------------------------------
+    # 5. Convert RGB -> grayscale
+    # ---------------------------------------------------------
+
+    gray = cv2.cvtColor(
+        obstacle_area,
+        cv2.COLOR_RGB2GRAY
+    )
+
+    # ---------------------------------------------------------
+    # 6. Detect black pixels
+    # ---------------------------------------------------------
+
+    mask = np.zeros_like(
+        gray,
+        dtype=np.uint8
+    )
+
+    mask[gray < threshold] = 255
+
+    # ---------------------------------------------------------
+    # 7. Find connected components
+    # ---------------------------------------------------------
+
+    result = cv2.findContours(
+        mask,
+        cv2.RETR_EXTERNAL,
+        cv2.CHAIN_APPROX_SIMPLE
+    )
+
+    if len(result) == 2:
+        contours = result[0]
+    else:
+        contours = result[1]
+
+    # ---------------------------------------------------------
+    # 8. Create occupancy map
+    # ---------------------------------------------------------
+
+    occupancy_map = np.zeros_like(
+        gray,
+        dtype=np.uint8
+    )
+
+    # ---------------------------------------------------------
+    # 9. Keep obstacles >= 400 px²
+    # ---------------------------------------------------------
+
+    valid_contours = []
+
+    for contour in contours:
+
+        area = cv2.contourArea(contour)
+
+        if area >= min_area:
+
+            valid_contours.append(contour)
+
+    # ---------------------------------------------------------
+    # 10. Draw valid obstacles
+    # ---------------------------------------------------------
+
+    for contour in valid_contours:
+
+        cv2.drawContours(
+            occupancy_map,
+            [contour],
+            -1,
+            1,
+            thickness=cv2.FILLED
+        )
+
+    # ---------------------------------------------------------
+    # 11. Create 90-pixel buffer
+    # ---------------------------------------------------------
+
+    # Convert occupancy map to binary image
+    obstacle_mask = (
+        occupancy_map * 255
+    ).astype(np.uint8)
+
+    # Circular kernel gives an approximately circular
+    # buffer around the obstacles.
+    kernel_size = 2 * buffer_size + 1
+
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE,
+        (kernel_size, kernel_size)
+    )
+
+    buffered_mask = cv2.dilate(
+        obstacle_mask,
+        kernel,
+        iterations=1
+    )
+
+    # ---------------------------------------------------------
+    # 12. Convert back to 0/1 occupancy
+    # ---------------------------------------------------------
+
+    occupancy_map = np.zeros_like(
+        buffered_mask,
+        dtype=np.uint8
+    )
+
+    occupancy_map[
+        buffered_mask > 0
+    ] = 1
+
+    return occupancy_map
+
+def display_full_maze_with_occupancy(
+    transformed_image,
+    occupancy_map
+):
+    """
+    Display the complete perspective-transformed maze,
+    with only the fixed 5x5 obstacle area replaced by
+    its occupancy map.
+
+    0 = free
+    1 = obstacle
+    """
+
+    # ---------------------------------------------------------
+    # Copy original image
+    # ---------------------------------------------------------
+
+    output = transformed_image.copy()
+
+    height, width = output.shape[:2]
+
+    # ---------------------------------------------------------
+    # 9x9 cell dimensions
+    # ---------------------------------------------------------
+
+    cell_width = width / 9
+    cell_height = height / 9
+
+    # ---------------------------------------------------------
+    # Fixed 5x5 obstacle area
+    #
+    # Top-left     = (3,1)
+    # Bottom-right = (7,5)
+    # ---------------------------------------------------------
+
+    x1 = int(3 * cell_width)
+    y1 = int(1 * cell_height)
+
+    x2 = int(8 * cell_width)
+    y2 = int(6 * cell_height)
+
+    # ---------------------------------------------------------
+    # Resize occupancy map to exactly fit obstacle region
+    # ---------------------------------------------------------
+
+    occupancy_resized = cv2.resize(
+        occupancy_map,
+        (x2 - x1, y2 - y1),
+        interpolation=cv2.INTER_NEAREST
+    )
+
+    # ---------------------------------------------------------
+    # Convert occupancy map to display image
+    #
+    # Free     = white
+    # Obstacle = black
+    # ---------------------------------------------------------
+
+    occupancy_display = np.ones(
+        (
+            y2 - y1,
+            x2 - x1,
+            3
+        ),
+        dtype=np.uint8
+    ) * 255
+
+    occupancy_display[
+        occupancy_resized == 1
+    ] = [0, 0, 0]
+
+    # ---------------------------------------------------------
+    # Replace ONLY the obstacle area
+    # ---------------------------------------------------------
+
+    output[
+        y1:y2,
+        x1:x2
+    ] = occupancy_display
+
+    return output
+
+
+def add_maze_walls_to_occupancy(
+    occupancy_map,
+    graph,
+    rows=9,
+    cols=9,
+    top_left=(3, 1),
+    bottom_right=(7, 5),
+    wall_thickness=10,
+    wall_buffer=90
+):
+    """
+    Add maze walls surrounding the 5x5 obstacle area
+    to the occupancy map.
+
+    Existing obstacle occupancy:
+        0 = free
+        1 = occupied
+
+    Added:
+        maze walls + 90 pixel safety buffer
+
+    The occupancy_map is modified and returned.
+    """
+
+    height, width = occupancy_map.shape[:2]
+
+    # ---------------------------------------------------------
+    # Size of each internal cell
+    # ---------------------------------------------------------
+
+    obstacle_width = (
+        bottom_right[0] - top_left[0] + 1
+    )
+
+    obstacle_height = (
+        bottom_right[1] - top_left[1] + 1
+    )
+
+    cell_width = width / obstacle_width
+    cell_height = height / obstacle_height
+
+    # ---------------------------------------------------------
+    # Copy occupancy map
+    # ---------------------------------------------------------
+
+    result = occupancy_map.copy()
+
+    # ---------------------------------------------------------
+    # Helper: add buffered wall
+    # ---------------------------------------------------------
+
+    def add_vertical_wall(x):
+
+        x = int(x)
+
+        # Wall itself
+        half = wall_thickness // 2
+
+        x1 = max(0, x - half)
+        x2 = min(width, x + half + 1)
+
+        result[:, x1:x2] = 1
+
+        # Buffer
+        buffer_x1 = max(
+            0,
+            x - half - wall_buffer
+        )
+
+        buffer_x2 = min(
+            width,
+            x + half + wall_buffer + 1
+        )
+
+        result[:, buffer_x1:buffer_x2] = 1
+
+
+    def add_horizontal_wall(y):
+
+        y = int(y)
+
+        half = wall_thickness // 2
+
+        y1 = max(0, y - half)
+        y2 = min(height, y + half + 1)
+
+        result[y1:y2, :] = 1
+
+        # Buffer
+        buffer_y1 = max(
+            0,
+            y - half - wall_buffer
+        )
+
+        buffer_y2 = min(
+            height,
+            y + half + wall_buffer + 1
+        )
+
+        result[buffer_y1:buffer_y2, :] = 1
+
+    # ---------------------------------------------------------
+    # Check walls around the obstacle region
+    # ---------------------------------------------------------
+
+    # We only need the walls forming boundaries between
+    # the obstacle area and the normal maze.
+
+    left_x = 0
+    right_x = width
+
+    top_y = 0
+    bottom_y = height
+
+    # ---------------------------------------------------------
+    # LEFT boundary
+    # ---------------------------------------------------------
+
+    # Cells on left side of obstacle region:
+    # x = 2, y = 1..5
+
+    for y in range(
+        top_left[1],
+        bottom_right[1] + 1
+    ):
+
+        node_id = y * cols + (top_left[0] - 1)
+
+        if graph.nodes[node_id].east:
+
+            wall_y1 = (
+                y - top_left[1]
+            ) * cell_height
+
+            wall_y2 = (
+                y - top_left[1] + 1
+            ) * cell_height
+
+            x = 0
+
+            result[
+                int(wall_y1):int(wall_y2),
+                0:min(width, wall_buffer)
+            ] = 1
+
+
+    # ---------------------------------------------------------
+    # RIGHT boundary
+    # ---------------------------------------------------------
+
+    # Cells on right side:
+    # x = 8, y = 1..5
+
+    for y in range(
+        top_left[1],
+        bottom_right[1] + 1
+    ):
+
+        node_id = y * cols + (
+            bottom_right[0] + 1
+        )
+
+        if graph.nodes[node_id].west:
+
+            wall_y1 = (
+                y - top_left[1]
+            ) * cell_height
+
+            wall_y2 = (
+                y - top_left[1] + 1
+            ) * cell_height
+
+            result[
+                int(wall_y1):int(wall_y2),
+                max(0, width - wall_buffer):width
+            ] = 1
+
+
+    # ---------------------------------------------------------
+    # TOP boundary
+    # ---------------------------------------------------------
+
+    # Cells above obstacle region:
+    # y = 0, x = 3..7
+
+    for x in range(
+        top_left[0],
+        bottom_right[0] + 1
+    ):
+
+        node_id = (
+            (top_left[1] - 1) * cols
+            + x
+        )
+
+        if graph.nodes[node_id].south:
+
+            wall_x1 = (
+                x - top_left[0]
+            ) * cell_width
+
+            wall_x2 = (
+                x - top_left[0] + 1
+            ) * cell_width
+
+            result[
+                0:min(height, wall_buffer),
+                int(wall_x1):int(wall_x2)
+            ] = 1
+
+
+    # ---------------------------------------------------------
+    # BOTTOM boundary
+    # ---------------------------------------------------------
+
+    # Cells below obstacle region:
+    # y = 6, x = 3..7
+
+    for x in range(
+        top_left[0],
+        bottom_right[0] + 1
+    ):
+
+        node_id = (
+            (bottom_right[1] + 1) * cols
+            + x
+        )
+
+        if graph.nodes[node_id].north:
+
+            wall_x1 = (
+                x - top_left[0]
+            ) * cell_width
+
+            wall_x2 = (
+                x - top_left[0] + 1
+            ) * cell_width
+
+            result[
+                max(0, height - wall_buffer):height,
+                int(wall_x1):int(wall_x2)
+            ] = 1
+
+    return result
