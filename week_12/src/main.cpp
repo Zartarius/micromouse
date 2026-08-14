@@ -4,8 +4,6 @@
 #include "Misc.hpp"
 #include "AutoMapping.hpp"
 
-#define TASK_4_POINT 3
-
 void setup() {
     // Serial.begin(9600);
     Wire.begin();
@@ -22,9 +20,10 @@ void setup() {
 
 void loop() {
     // auto& r = GET_ROBOT();
-    // mm::do_auto_mapping();
-    // mm::chaining((char *)"frffflfrffrflfffrf");
-    mm::robot_drive_straight_with_lidars_no_profile_soft_start(1000.0f, 30000, 130);
+    mm::do_auto_mapping();
+    // mm::chaining((char *)"flfrffffrflfrflfrfrflffrflflfrfrffflfrfrflff");
+    // mm::lidar_tester();
+    // mm::robot_drive_straight_with_lidars_no_profile_soft_start(180.0f * 4.0f, 30000, 110);
     // mm::print_victory_flag();
 
     HALT();

@@ -35,7 +35,7 @@ void robot_rotate(const float degrees, const unsigned long timeout_ms, const int
     // lower = smoother to react, higher = noisier to react
     const float derivative_smoothing = 0.2f;
 
-    while ((fabs(error) > 0.5f || fabs(error_derivative) > 20.0f) && micros() - start_time < timeout) {
+    while ((fabs(error) > 2.0f || fabs(error_derivative) > 20.0f) && micros() - start_time < timeout) {
         unsigned long now = micros();
         float dt = (now - prev_time) * 1e-6f;
         prev_time = now;
@@ -63,28 +63,24 @@ void robot_rotate(const float degrees, const unsigned long timeout_ms, const int
 }
 
 
-// Same as robot_drive_straight_with_lidars_no_profile, but ramps the forward
-// PWM ceiling from 0 up to max_abs_pwm over a short accel_ramp_ms window at
-// the start of the move instead of allowing full torque immediately - a
-// quick soft-start to cut the initial jerk. Deceleration is untouched: it's
-// still whatever the position PID naturally does as pos_error shrinks, and
-// by the time that happens the ramp has long since reached max_abs_pwm
-// (keep accel_ramp_ms small so this holds).
 void robot_drive_straight_with_lidars_no_profile_soft_start(
     const float distance,
     const unsigned long timeout_ms,
     const int16_t max_abs_pwm,
     bool stop_at_end = true,
-    const unsigned long accel_ramp_ms = 100
+    const unsigned long accel_ramp_ms = 120
 ) {
     auto& robot = GET_ROBOT();
+
+    robot.position_controller.tune(45.0f, 0.0f, 2.8f);
 
     robot.left_motor.setEncoderToZero();
     robot.right_motor.setEncoderToZero();
     robot.position_controller.reset();
     robot.heading_controller.reset();
+    robot.wall_centering_controller.reset();
     robot.gyroscope.reset();
-    mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.02f);
+    // mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.02f);
     // 1.2, 0.0, 0.05, 0.5 rn
 
     const float turn_radians = distance / robot.wheel_radius_mm;
@@ -106,18 +102,13 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
     // it can't force more torque than the soft-start currently allows.
     const int16_t min_effective_pwm = 30;
 
-    while ((fabs(pos_error) > 0.15f || fabs(pos_derivative) > 30.0f) && micros() - start_time < timeout) {
+    while ((fabs(pos_error) > 0.2f || fabs(pos_derivative) > 30.0f) && micros() - start_time < timeout) {
         robot.gyroscope.update();
         robot.lidar_system.update();
 
-        #if 1
-        if (robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 50) {
-            // robot.oled.clear();
-            // robot.oled.print(0, 0, "d: %d\n", d);
-            // HALT();
+        if (robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 65) {
             break;
         }
-        #endif
 
         unsigned long now = micros();
         float dt = (now - prev_time) * 1e-6f;
@@ -167,21 +158,21 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else if (left_wall) {
             float lateral_error = left_dist - 50.0f;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else if (right_wall) {
             float lateral_error = 50.0f - right_dist;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else {
-            wall_centering_controller.reset();
+            robot.wall_centering_controller.reset();
         }
 
         // Hard "too close" override: a smooth PID has to accumulate error
@@ -194,14 +185,14 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
         // the real number by hand (push the chassis sideways into a wall
         // and read what the sensor reports at first contact) and set this
         // a few mm above that, not at 0.
-        const float critical_clearance_mm = 30.0f;
+        const float critical_clearance_mm = 35.0f;
         bool left_critical = robot.lidar_system.leftHasReading() && left_dist < critical_clearance_mm;
         bool right_critical = robot.lidar_system.rightHasReading() && right_dist < critical_clearance_mm;
         if (left_critical || right_critical) {
             // If somehow both trip at once, steer away from whichever is nearer.
             bool steer_away_from_left = left_critical && (!right_critical || left_dist <= right_dist);
             heading_target = steer_away_from_left ? -wall_centering_clamp : wall_centering_clamp;
-            wall_centering_controller.reset();
+            robot.wall_centering_controller.reset();
         }
 
         float heading_error = heading_target - robot.gyroscope.getHeading();
@@ -286,8 +277,9 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
     robot.right_motor.setEncoderToZero();
     robot.position_controller.reset();
     robot.heading_controller.reset();
+    robot.wall_centering_controller.reset();
     robot.gyroscope.reset();
-    mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.02f);
+    // mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.02f);
     // 1.2, 0.0, 0.05, 0.5 rn
 
     const float turn_radians = distance / robot.wheel_radius_mm;
@@ -370,21 +362,21 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else if (left_wall) {
             float lateral_error = left_dist - 50.0f;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else if (right_wall) {
             float lateral_error = 50.0f - right_dist;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else {
-            wall_centering_controller.reset();
+            robot.wall_centering_controller.reset();
         }
 
         // Hard "too close" override: a smooth PID has to accumulate error
@@ -404,7 +396,7 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
             // If somehow both trip at once, steer away from whichever is nearer.
             bool steer_away_from_left = left_critical && (!right_critical || left_dist <= right_dist);
             heading_target = steer_away_from_left ? -wall_centering_clamp : wall_centering_clamp;
-            wall_centering_controller.reset();
+            robot.wall_centering_controller.reset();
         }
 
         float heading_error = heading_target - robot.gyroscope.getHeading();
@@ -469,13 +461,6 @@ void robot_rotate(const float degrees, const unsigned long timeout_ms, const int
 }
 
 
-// Same as robot_drive_straight_with_lidars_no_profile, but ramps the forward
-// PWM ceiling from 0 up to max_abs_pwm over a short accel_ramp_ms window at
-// the start of the move instead of allowing full torque immediately - a
-// quick soft-start to cut the initial jerk. Deceleration is untouched: it's
-// still whatever the position PID naturally does as pos_error shrinks, and
-// by the time that happens the ramp has long since reached max_abs_pwm
-// (keep accel_ramp_ms small so this holds).
 void robot_drive_straight_with_lidars_no_profile_soft_start(
     const float distance,
     const unsigned long timeout_ms,
@@ -489,8 +474,9 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
     robot.right_motor.setEncoderToZero();
     robot.position_controller.reset();
     robot.heading_controller.reset();
+    robot.wall_centering_controller.reset();
     robot.gyroscope.reset();
-    mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.02f);
+    // mm::PIDController wall_centering_controller(0.5f, 0.0f, 0.02f);
     // 1.2, 0.0, 0.05, 0.5 rn
 
     const float turn_radians = distance / robot.wheel_radius_mm;
@@ -512,13 +498,18 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
     // it can't force more torque than the soft-start currently allows.
     const int16_t min_effective_pwm = 30;
 
-    while ((fabs(pos_error) > 0.1f || fabs(pos_derivative) > 30.0f) && micros() - start_time < timeout) {
+    while ((fabs(pos_error) > 0.15f || fabs(pos_derivative) > 30.0f) && micros() - start_time < timeout) {
         robot.gyroscope.update();
         robot.lidar_system.update();
 
+        #if 1
         if (robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 50) {
+            // robot.oled.clear();
+            // robot.oled.print(0, 0, "d: %d\n", d);
+            // HALT();
             break;
         }
+        #endif
 
         unsigned long now = micros();
         float dt = (now - prev_time) * 1e-6f;
@@ -568,21 +559,21 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else if (left_wall) {
             float lateral_error = left_dist - 50.0f;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else if (right_wall) {
             float lateral_error = 50.0f - right_dist;
             if (fabs(lateral_error) < centering_tolerance_mm) {
                 lateral_error = 0.0f;
             }
-            heading_target = static_cast<float>(wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
+            heading_target = static_cast<float>(robot.wall_centering_controller.compute_output(lateral_error, dt, -wall_centering_clamp, wall_centering_clamp));
         } else {
-            wall_centering_controller.reset();
+            robot.wall_centering_controller.reset();
         }
 
         // Hard "too close" override: a smooth PID has to accumulate error
@@ -602,7 +593,7 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
             // If somehow both trip at once, steer away from whichever is nearer.
             bool steer_away_from_left = left_critical && (!right_critical || left_dist <= right_dist);
             heading_target = steer_away_from_left ? -wall_centering_clamp : wall_centering_clamp;
-            wall_centering_controller.reset();
+            robot.wall_centering_controller.reset();
         }
 
         float heading_error = heading_target - robot.gyroscope.getHeading();
