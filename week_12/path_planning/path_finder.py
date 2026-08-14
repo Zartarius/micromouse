@@ -658,3 +658,24 @@ def find_obstacle_course_entrances(graph, obstacle_nodes):
 
     return entrances
 
+def convert_commands(commands):
+
+    converted = []
+
+    for command in commands:
+
+        if command == "f":
+            converted.append((180.00, 0.0))
+
+        elif command == "r":
+            converted.append((0.00, 90.0))
+
+        elif command == "l":
+            converted.append((0.00, -90.0))
+
+        else:
+            raise ValueError(
+                f"Invalid command: {command}"
+            )
+
+    return converted
