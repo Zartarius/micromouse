@@ -4,11 +4,10 @@
 #include "Movement.hpp"
 #include "Misc.hpp"
 
-// MAZE_N_ROWS may be different to MAZE_N_COLS when testing
-
 
 namespace mm {
 
+// MAZE_N_ROWS may be different to MAZE_N_COLS when testing
 static constexpr uint8_t MAZE_N_ROWS = 9;
 static constexpr uint8_t MAZE_N_COLS = 9;
 static constexpr uint8_t NUM_CELLS = MAZE_N_ROWS * MAZE_N_COLS - 12;
@@ -28,6 +27,13 @@ struct Cell {
     uint8_t visited : 1;
 };
 static_assert(sizeof(Cell) == sizeof(uint8_t));
+
+enum Direction : uint8_t {
+    NORTH = 0,
+    EAST = 1,
+    SOUTH = 2,
+    WEST = 3
+};
 
 struct Maze {
     Cell cells[MAZE_N_ROWS][MAZE_N_COLS];
@@ -57,8 +63,8 @@ void maze_setup(void) {
     for (int i = 0; i < MAZE_N_ROWS; i++) {
         for (int j = 0; j < MAZE_N_COLS; j++) {
             bool valid_cell = true;
-            for (Coord& cell : invalid_cells) {
-                if (cell.row == i and cell.col == j) {
+            for (const auto& [row, col] : invalid_cells) {
+                if (row == i and col == j) {
                     valid_cell = false;
                     break;
                 }
@@ -87,10 +93,10 @@ void maze_setup(void) {
         }
     }
 
-    maze.start_coord = {1, 1};
-    maze.start_heading = 2;
+    maze.start_coord = {7, 7};
+    maze.start_heading = NORTH;
 
-    maze.goal_coord = {4, 7};
+    maze.goal_coord = {2, 0};
 
     maze.visited_count = 0;
 
@@ -157,27 +163,44 @@ void draw_maze_visualisation(void) {
         robot.oled.drawTile(0, ty, MAZE_VIS_TILE_COLS, row_buf);
     }
 
+    // Large digits are 2x3 tile cells each; 3 chars (up to "100") exactly
+    // fills the 6 tile columns left of the maze (text_col..15), so no '%'
+    // sign is appended there - it'd push a 4th char off the right edge of
+    // the screen. A small '%' is printed underneath instead.
     uint8_t percent = (uint8_t)((uint16_t)maze.visited_count * 100 / NUM_CELLS);
     uint8_t text_col = MAZE_VIS_TILE_COLS + 1;
-    robot.oled.print(text_col, 0, "Mapped");
-    robot.oled.print(text_col, 1, "%3d%%", percent);
-    robot.oled.print(text_col, 3, "%d/%d", maze.visited_count, NUM_CELLS);
+    robot.oled.printLarge(text_col, 2, "%3d", percent);
+    robot.oled.print(text_col + 2, 5, "%%");
 }
 
 bool drive_to_neighbour(int8_t chosen_dir) {
     int8_t delta = (chosen_dir - robot_heading + 4) % 4;
-    float rotation = 0.0f;
+    float rotation;
 
-    if (delta == 1) {
-        rotation = -90.0f;   // turn right
-    } else if (delta == 2) {
-        rotation = 180.0f;  // turn around
-    } else if (delta == 3) {
-        rotation = 90.0f;  // turn left
+    switch (delta) {
+        case 1:
+            rotation = -90.0f;
+            break;
+
+        case 2:
+            rotation = 180.0f;
+            break;
+
+        case 3:
+            rotation = 90.0f;
+            break;
+
+        default:
+            rotation = 0.0f;
+            break;
     }
 
     if (rotation != 0.0f) {
-        robot_rotate(rotation, 1400, 110);
+        if (fabs(rotation) >= 135.0f) {
+            robot_rotate(rotation, 2200, 90);
+        } else {
+            robot_rotate(rotation, 1100, 90);
+        }
     }
 
     // Double check if wall in front. Guard with frontHasReading(): the
@@ -185,16 +208,14 @@ bool drive_to_neighbour(int8_t chosen_dir) {
     // "<= 90" and reads as a false wall right after boot.
     auto& robot = GET_ROBOT();
     robot.lidar_system.update();
-    bool wall_to_front = robot.lidar_system.readFront() <= 90;
+    bool wall_to_front = robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 90;
     if (wall_to_front) {
-        robot_rotate(-rotation, 1600, 110);
+        robot_rotate(-rotation, 2200, 90);
         return false;
     }
 
     robot_heading = chosen_dir;
-    // robot_drive_straight(CELL_SIZE_MM, 5000);
-    robot_drive_straight_with_lidars_no_profile_soft_start(CELL_SIZE_MM, 5000, 120, true);
-    // robot_drive_straight_with_lidars_no_profile(CELL_SIZE_MM, 5000, 100, true);
+    robot_drive_straight_with_lidars_no_profile_soft_start(CELL_SIZE_MM, 5000, 100, true);
 
     return true;
 }
@@ -208,12 +229,10 @@ void maze_dfs(void) {
     maze.cells[current.row][current.col].visited = 1;
     maze.visited_count++;
 
-    draw_maze_visualisation();
-
     while (true) {
-        static Stack<Coord, NUM_CELLS> dfs_stack;
+        draw_maze_visualisation();
 
-        restart:
+        static Stack<Coord, NUM_CELLS> dfs_stack;
 
         robot.gyroscope.update();
         robot.lidar_system.update();
@@ -262,20 +281,12 @@ void maze_dfs(void) {
 
                 maze.cells[current.row][current.col].visited = 1;
                 maze.visited_count++;
-
-                // if (rand() % 5 == 0) {
-                //     print_victory_flag();
-                //     delayWhileUpdating(500);
-                // }
-
-                draw_maze_visualisation();
             } else {
                 maze.cells[current.row][current.col].walls |= (1 << chosen_dir);
                 (void)dfs_stack.pop();
-                goto restart;
             }
         } else {
-            if (dfs_stack.top == 0) {
+            if (dfs_stack.isEmpty()) {
                 robot.oled.clear();
                 robot.oled.print(0, 0, "Done mapping.\n");
                 break;
@@ -383,6 +394,11 @@ void shortest_path(const Coord& start, const Coord& end) {
 }
 
 void do_auto_mapping(void) {
+    auto& robot = GET_ROBOT();
+    robot.oled.clear();
+    robot.oled.printLarge(0, 0, "Task 4.3");
+    delayWhileUpdating(1000UL);
+
     maze_setup();
     maze_dfs();
     shortest_path(maze.start_coord, maze.goal_coord);

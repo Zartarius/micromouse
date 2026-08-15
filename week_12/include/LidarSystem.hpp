@@ -60,6 +60,11 @@ public:
         }
     }
 
+    // 0.25f is the default
+    void updateSmoothingAlpha(float new_alpha = 0.25f) {
+        SMOOTHING_ALPHA = new_alpha;
+    }
+
     int readFront() { return sensors[LIDAR_FRONT].last_mm; }
     int readLeft()  { return sensors[LIDAR_LEFT].last_mm; }
     int readRight() { return sensors[LIDAR_RIGHT].last_mm; }
@@ -99,7 +104,7 @@ private:
     // actually refresh every RANGING_PERIOD_MS, so smoothing too heavily
     // (low alpha) adds real-world lag to wall-centering reactions on top
     // of that.
-    static constexpr float SMOOTHING_ALPHA = 0.25f;
+    float SMOOTHING_ALPHA = 0.25f;
 
     struct Sensor {
         VL6180X device;

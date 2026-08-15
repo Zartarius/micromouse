@@ -37,6 +37,24 @@ public:
         display.drawString(x, y, buf);
     }
 
+    // Same as print(), but in a large 18px bold font (each character is 2x3
+    // character cells, i.e. 16x24px). x, y are still in normal 8x8 character
+    // cells, so leave room: a character printed at (x, y) also occupies
+    // (x+1, y), (x, y+1)..(x+1, y+2). Restores the normal font afterward so
+    // it doesn't affect other print() calls.
+    void printLarge(uint8_t x, uint8_t y, const char *fmt, ...) {
+        char buf[MAX_BUF_SIZE];
+
+        va_list args;
+        va_start(args, fmt);
+        vsnprintf(buf, MAX_BUF_SIZE, fmt, args);
+        va_end(args);
+
+        display.setFont(u8x8_font_courB18_2x3_r);
+        display.drawString(x, y, buf);
+        display.setFont(u8x8_font_chroma48medium8_r);
+    }
+
 
     // x, y are in character cells, not pixels
     // void print(uint8_t x, uint8_t y, const __FlashStringHelper *fmt, ...) {
