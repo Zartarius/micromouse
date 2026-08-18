@@ -1,3 +1,3 @@
 #pragma once
 
-#define TASK_4_POINT 3
+#define TASK_4_POINT 1

@@ -60,9 +60,17 @@ public:
         }
     }
 
-    // 0.25f is the default
-    void updateSmoothingAlpha(float new_alpha = 0.25f) {
-        SMOOTHING_ALPHA = new_alpha;
+    // 0.25f is the default for both. Front and sides generally want
+    // different smoothing: the front reading gates a hard stop (readFront()
+    // <= threshold), so it usually wants to be more responsive (higher
+    // alpha), while the sides feed wall-centering, which is more sensitive
+    // to noise-driven jitter and usually wants more smoothing (lower alpha).
+    void updateSideSmoothingAlpha(float new_alpha = 0.25f) {
+        side_smoothing_alpha = new_alpha;
+    }
+
+    void updateFrontSmoothingAlpha(float new_alpha = 0.25f) {
+        front_smoothing_alpha = new_alpha;
     }
 
     int readFront() { return sensors[LIDAR_FRONT].last_mm; }
@@ -102,9 +110,12 @@ private:
     // Exponential moving average weight for fresh samples: higher = more
     // responsive/less smoothing, lower = smoother/more lag. Readings only
     // actually refresh every RANGING_PERIOD_MS, so smoothing too heavily
-    // (low alpha) adds real-world lag to wall-centering reactions on top
-    // of that.
-    float SMOOTHING_ALPHA = 0.25f;
+    // (low alpha) adds real-world lag to wall-centering/front-stop
+    // reactions on top of that. Split per sensor group since the front
+    // and the sides feed very different consumers with different noise
+    // tolerances - see updateFrontSmoothingAlpha/updateSideSmoothingAlpha.
+    float front_smoothing_alpha = 0.25f;
+    float side_smoothing_alpha = 0.25f;
 
     struct Sensor {
         VL6180X device;
@@ -203,11 +214,12 @@ private:
             // EMA smoothing. Snap straight to the first real reading
             // instead of blending from the -1 placeholder, so startup
             // doesn't ramp up from a meaningless default.
+            float alpha = (i == LIDAR_FRONT) ? front_smoothing_alpha : side_smoothing_alpha;
             if (!s.has_reading) {
                 s.filtered_mm = static_cast<float>(raw_mm);
             } else {
-                s.filtered_mm = s.filtered_mm * (1.0f - SMOOTHING_ALPHA)
-                               + static_cast<float>(raw_mm) * SMOOTHING_ALPHA;
+                s.filtered_mm = s.filtered_mm * (1.0f - alpha)
+                               + static_cast<float>(raw_mm) * alpha;
             }
             s.last_mm = static_cast<int>(s.filtered_mm + 0.5f);
 

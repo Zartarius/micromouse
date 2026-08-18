@@ -72,6 +72,9 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
 ) {
     auto& robot = GET_ROBOT();
 
+    robot.lidar_system.updateFrontSmoothingAlpha(1.0f);
+    robot.lidar_system.updateSideSmoothingAlpha(0.3f);
+
     robot.position_controller.tune(45.0f, 0.0f, 2.8f);
 
     robot.left_motor.setEncoderToZero();
@@ -185,7 +188,7 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
         // the real number by hand (push the chassis sideways into a wall
         // and read what the sensor reports at first contact) and set this
         // a few mm above that, not at 0.
-        const float critical_clearance_mm = 35.0f;
+        const float critical_clearance_mm = 30.0f;
         bool left_critical = robot.lidar_system.leftHasReading() && left_dist < critical_clearance_mm;
         bool right_critical = robot.lidar_system.rightHasReading() && right_dist < critical_clearance_mm;
         if (left_critical || right_critical) {
@@ -504,7 +507,7 @@ void robot_drive_straight_no_lidars_soft_start(
 void robot_rotate(const float degrees, const unsigned long timeout_ms, const int16_t max_abs_pwm) {
     auto& robot = GET_ROBOT();
 
-    robot.rotation_controller.tune(6.0f, 0.05f, 0.7f);
+    robot.rotation_controller.tune(6.3f, 0.06f, 0.6f);
 
     robot.rotation_controller.reset();
     robot.gyroscope.reset();
@@ -554,9 +557,12 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
     const unsigned long timeout_ms,
     const int16_t max_abs_pwm,
     bool stop_at_end = true,
-    const unsigned long accel_ramp_ms = 130
+    const unsigned long accel_ramp_ms = 200
 ) {
     auto& robot = GET_ROBOT();
+
+    robot.lidar_system.updateFrontSmoothingAlpha(0.8f);
+    robot.lidar_system.updateSideSmoothingAlpha(0.25f);
 
     robot.wall_centering_controller.tune(0.20f, 0.0f, 0.0f);
 
@@ -592,7 +598,7 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
         robot.gyroscope.update();
         robot.lidar_system.update();
 
-        if (robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 50) {
+        if (robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 55) {
             break;
         }
 
@@ -711,7 +717,7 @@ void robot_align(const float sweep_deg = 4.0f, const int16_t max_abs_pwm = 20, c
     auto& robot = GET_ROBOT();
 
     robot.gyroscope.reset();
-    robot.lidar_system.updateSmoothingAlpha(0.9f);
+    // robot.lidar_system.updateSmoothingAlpha(0.9f);
 
     // Each leg gets its own slice of the budget instead of sharing one
     // clock - otherwise a single stalled leg (see min_effective_pwm below)
@@ -770,7 +776,7 @@ void robot_align(const float sweep_deg = 4.0f, const int16_t max_abs_pwm = 20, c
 }
 
 
-void chaining(char *movement) {
+void chaining(const char *movement) {
     const auto& count_forwards = [](const char *p) {
         int n = 0;
         while (*p == 'f') {

@@ -26,7 +26,7 @@ void do_cont_planning(void) {
     for (const auto& [rotation, distance] : movements) {
         robot_rotate(rotation, 1500, 80);
         (void)distance;
-        // robot_drive_straight_no_lidars_soft_start(distance, 30000, 80);
+        robot_drive_straight_no_lidars_soft_start(distance, 30000, 80);
     }
 
     robot_drive_straight_with_lidars_no_profile_soft_start(CELL_SIZE_MM, 5000, 80, true, 150UL);

@@ -93,10 +93,10 @@ void maze_setup(void) {
         }
     }
 
-    maze.start_coord = {7, 7};
-    maze.start_heading = NORTH;
+    maze.start_coord = {1, 1};
+    maze.start_heading = SOUTH;
 
-    maze.goal_coord = {2, 0};
+    maze.goal_coord = {7, 7};
 
     maze.visited_count = 0;
 
@@ -208,7 +208,7 @@ bool drive_to_neighbour(int8_t chosen_dir) {
     // "<= 90" and reads as a false wall right after boot.
     auto& robot = GET_ROBOT();
     robot.lidar_system.update();
-    bool wall_to_front = robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 90;
+    bool wall_to_front = robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 100;
     if (wall_to_front) {
         robot_rotate(-rotation, 2200, 90);
         return false;
@@ -240,9 +240,9 @@ void maze_dfs(void) {
         // Guard with HasReading(): the -1 "no reading yet" sentinel
         // otherwise always satisfies "< 90" and reads as a false wall on
         // every side right after boot, before any sensor has a real sample.
-        bool wall_to_front = robot.lidar_system.readFront() <= 90;
-        bool wall_to_left = robot.lidar_system.readLeft() <= 90;
-        bool wall_to_right = robot.lidar_system.readRight() <= 90;
+        bool wall_to_front = robot.lidar_system.frontHasReading() && robot.lidar_system.readFront() <= 100;
+        bool wall_to_left = robot.lidar_system.frontHasReading() && robot.lidar_system.readLeft() <= 100;
+        bool wall_to_right = robot.lidar_system.frontHasReading() && robot.lidar_system.readRight() <= 100;
 
         if (wall_to_front) maze.cells[current.row][current.col].walls |= (1 << robot_heading);
         if (wall_to_left) maze.cells[current.row][current.col].walls |= (1 << ((robot_heading + 3) % 4));
