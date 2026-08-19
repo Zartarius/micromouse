@@ -139,6 +139,156 @@ def detect_corner_markers(image):
 
     return source_points
 
+def detect_corner_markers_manual(image):
+
+    # ---------------------------------------------------------
+    # Resize image ONLY for display
+    # ---------------------------------------------------------
+
+    max_display_size = 900
+
+    h, w = image.shape[:2]
+
+    scale = min(
+        max_display_size / w,
+        max_display_size / h,
+        1.0
+    )
+
+    display_w = int(w * scale)
+    display_h = int(h * scale)
+
+    display = cv2.resize(
+        image,
+        (display_w, display_h),
+        interpolation=cv2.INTER_AREA
+    )
+
+    # RGB -> BGR for OpenCV
+    display = cv2.cvtColor(
+        display,
+        cv2.COLOR_RGB2BGR
+    )
+
+    points = []
+
+    window_name = "Select Maze Corners"
+
+    cv2.namedWindow(
+        window_name,
+        cv2.WINDOW_NORMAL
+    )
+
+    cv2.resizeWindow(
+        window_name,
+        display_w,
+        display_h
+    )
+
+    # ---------------------------------------------------------
+    # Mouse callback
+    # ---------------------------------------------------------
+
+    def mouse_callback(event, x, y, flags, param):
+
+        if event == cv2.EVENT_LBUTTONDOWN:
+
+            if len(points) >= 4:
+                return
+
+            # Convert display coordinates
+            # back to original image coordinates
+            original_x = int(x / scale)
+            original_y = int(y / scale)
+
+            points.append(
+                (original_x, original_y)
+            )
+
+            # Draw point
+            cv2.circle(
+                display,
+                (x, y),
+                6,
+                (0, 255, 0),
+                -1
+            )
+
+            # Number point
+            cv2.putText(
+                display,
+                str(len(points)),
+                (x + 10, y - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 255, 0),
+                2
+            )
+
+            print(
+                f"Point {len(points)}: "
+                f"({original_x}, {original_y})"
+            )
+
+    cv2.setMouseCallback(
+        window_name,
+        mouse_callback
+    )
+
+    print("Click:")
+    print("1 = Top-left")
+    print("2 = Top-right")
+    print("3 = Bottom-left")
+    print("4 = Bottom-right")
+    print("ESC = Cancel")
+
+    # ---------------------------------------------------------
+    # Display loop
+    # ---------------------------------------------------------
+
+    while len(points) < 4:
+
+        cv2.imshow(
+            window_name,
+            display
+        )
+
+        key = cv2.waitKey(20) & 0xFF
+
+        if key == 27:
+            cv2.destroyAllWindows()
+
+            raise ValueError(
+                "Manual corner selection cancelled."
+            )
+
+    # ---------------------------------------------------------
+    # Fourth point has been selected
+    # ---------------------------------------------------------
+
+    cv2.imshow(
+        window_name,
+        display
+    )
+
+    # Give OpenCV time to display the fourth point
+    cv2.waitKey(300)
+
+    cv2.destroyAllWindows()
+
+    # ---------------------------------------------------------
+    # Return same format as detect_corner_markers()
+    # ---------------------------------------------------------
+
+    source_points = np.float32([
+        points[0],
+        points[1],
+        points[2],
+        points[3]
+    ])
+
+    return source_points
+
 def load_and_process_image(image_file, side=1620):
     """
     Load the camera image, apply perspective correction and convert
@@ -217,8 +367,12 @@ def load_and_process_image(image_file, side=1620):
     )
 
     # Threshold the image in HSV space to isolate the maze walls.
-    lower_black = (0, 0, 130)
-    upper_black = (180, 255, 255)
+    border = 10
+
+    cv2.rectangle(image, (0, 0), (side - 1, side - 1), (0, 0, 0), border)
+
+    lower_black = (0, 0, 140)
+    upper_black = (179, 255, 200)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(hsv, lower_black, upper_black)
@@ -241,8 +395,8 @@ def process_image(image):
     """
 
     # Threshold the image in HSV space to isolate the maze walls.
-    lower_black = (0, 0, 130)
-    upper_black = (180, 255, 255)
+    lower_black = (0, 0, 150)
+    upper_black = (120, 40, 200)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(hsv, lower_black, upper_black)
