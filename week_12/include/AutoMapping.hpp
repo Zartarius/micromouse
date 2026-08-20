@@ -254,8 +254,20 @@ void maze_dfs(void) {
 
         int8_t chosen_dir = -1;
 
+        // Search left, right, forward, back (relative to robot_heading)
+        // rather than fixed compass order - matches drive_to_neighbour's
+        // delta encoding, where (heading+3)%4=left, (heading+1)%4=right,
+        // heading=forward, (heading+2)%4=back.
+        uint8_t dir_priority[4] = {
+            static_cast<uint8_t>((robot_heading + 3) % 4),
+            static_cast<uint8_t>((robot_heading + 1) % 4),
+            robot_heading,
+            static_cast<uint8_t>((robot_heading + 2) % 4)
+        };
+
         // Find unvisited neighbour
-        for (uint8_t dir = 0; dir < 4; dir++) {
+        for (uint8_t i = 0; i < 4; i++) {
+            uint8_t dir = dir_priority[i];
             bool wall_present = maze.cells[current.row][current.col].walls & (1 << dir);
             if (wall_present) continue;
 

@@ -75,7 +75,7 @@ void robot_drive_straight_with_lidars_no_profile_soft_start(
     robot.lidar_system.updateFrontSmoothingAlpha(1.0f);
     robot.lidar_system.updateSideSmoothingAlpha(0.3f);
 
-    robot.position_controller.tune(45.0f, 0.0f, 2.8f);
+    robot.position_controller.tune(35.0f, 0.0f, 3.5f);
 
     robot.left_motor.setEncoderToZero();
     robot.right_motor.setEncoderToZero();
@@ -791,7 +791,7 @@ void chaining(const char *movement) {
         switch (movement[i]) {
             case 'f': {
                 int n = count_forwards(&movement[i]);
-                mm::robot_drive_straight_with_lidars_no_profile_soft_start((float) n * CELL_SIZE_MM, 5000 * n, 130);
+                mm::robot_drive_straight_with_lidars_no_profile_soft_start((float) n * CELL_SIZE_MM, 3000 * n, 130);
                 i += n;
                 break;
             } case 'r': {

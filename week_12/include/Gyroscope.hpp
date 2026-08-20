@@ -51,7 +51,7 @@ public:
     void update(void) {
         unsigned long now_ms = millis();
         if (now_ms == last_update_ms) {
-            return; // not enough time has passed for a meaningful dt
+            return;
         }
         last_update_ms = now_ms;
         mpu6050.update();

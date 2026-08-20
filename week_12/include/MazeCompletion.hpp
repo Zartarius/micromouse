@@ -13,7 +13,7 @@ void do_maze_completion(void) {
 
     unsigned long start_time = millis();
 
-    chaining("");
+    chaining("ffff");
 
     delayWhileUpdating(3460UL);
 

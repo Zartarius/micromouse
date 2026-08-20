@@ -37,10 +37,6 @@ void loop() {
     // mm::robot_drive_straight_with_lidars_no_profile_soft_start(180.0f * 4.0f, 30000, 110);
     // mm::lidar_t ester();
 
-    mm::chaining("ffffrrffff");
-
-    HALT();
-
     #if TASK_4_POINT == 1
         mm::do_maze_completion();
     #elif TASK_4_POINT == 2

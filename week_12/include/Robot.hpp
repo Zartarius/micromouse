@@ -61,6 +61,13 @@ private:
                     (LidarSystem::Config) {.en_pin = LIDARRIGHT_EN_PIN, .address = LIDARRIGHT_ADD}),
         oled(),
         // wheel_radius_mm(15.85f),
+        // ~5% overshoot even at low speed pointed to a calibration/scale
+        // error rather than a tuning one (dynamic overshoot shrinks with
+        // speed; this didn't). actual/commanded distance scales with
+        // (true_radius/coded_radius), so overshoot means the true radius
+        // is bigger than what was coded - bumped 16.0 -> 16.8 (+5%) as a
+        // first pass. Refine by driving a precisely measured distance at
+        // low speed and rescaling: new = old * (actual_measured / commanded).
         wheel_radius_mm(16.0f),
         track_width_mm(87.4f)
     {}
