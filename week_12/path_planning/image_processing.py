@@ -79,23 +79,23 @@ def detect_corner_markers(image):
 
     colours = {
         "top_left": {
-            "lower": (140, 30, 130),
-            "upper": (179, 60, 165)
+            "lower": (140, 10, 120),
+            "upper": (179, 100, 190)
         },
 
         "top_right": {
-            "lower": (0, 135, 134),
-            "upper": (179, 209, 255)
+            "lower": (0, 120, 120),
+            "upper": (30, 180, 190)
         },
 
         "bottom_left": {
-            "lower": (109, 40, 100),
-            "upper": (179, 255, 147)
+            "lower": (110, 40, 120),
+            "upper": (140, 120, 190)
         },
 
         "bottom_right": {
-            "lower": (19, 91, 120),
-            "upper": (34, 177, 255)
+            "lower": (20, 100, 120),
+            "upper": (50, 150, 190)
         }
     }
 
@@ -371,8 +371,8 @@ def load_and_process_image(image_file, side=1620):
 
     cv2.rectangle(image, (0, 0), (side - 1, side - 1), (0, 0, 0), border)
 
-    lower_black = (0, 0, 140)
-    upper_black = (179, 255, 200)
+    lower_black = (0, 0, 150)
+    upper_black = (179, 40, 255)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(hsv, lower_black, upper_black)
@@ -396,7 +396,7 @@ def process_image(image):
 
     # Threshold the image in HSV space to isolate the maze walls.
     lower_black = (0, 0, 150)
-    upper_black = (120, 40, 200)
+    upper_black = (179, 40, 255)
 
     hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
     mask = cv2.inRange(hsv, lower_black, upper_black)
