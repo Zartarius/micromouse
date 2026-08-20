@@ -254,6 +254,170 @@ def command_optimal_path(graph, start, goal, start_direction="N", cols=9):
         )
     return path, commands
 
+def command_optimal_path_no_long_straights(
+    graph, start, goal, start_direction="N", cols=9, max_open_streak=2
+):
+    """
+    Same as command_optimal_path, but disallows any path that drives
+    straight (no turn) through 3 or more consecutive cells which have
+    no wall on either side (left/right relative to travel direction).
+
+    Search state is now (node, direction, streak), where `streak` is
+    the number of consecutive "open-sided" cells just travelled
+    through in a straight line. Any transition that would push the
+    streak to max_open_streak + 1 is pruned from the search.
+    """
+
+    directions = ["N", "E", "S", "W"]
+
+    def side_walls(node_obj, direction):
+        """Return (left_wall, right_wall) relative to direction of travel."""
+        walls = node_obj.get_walls()
+        if direction == "N":
+            return walls["W"], walls["E"]
+        elif direction == "S":
+            return walls["E"], walls["W"]
+        elif direction == "E":
+            return walls["N"], walls["S"]
+        else:  # "W"
+            return walls["S"], walls["N"]
+
+    def is_open_cell(node_obj, direction):
+        left, right = side_walls(node_obj, direction)
+        return (not left) and (not right)
+
+    # ---------------------------------------------------------
+    # State = (node, direction, streak)
+    # ---------------------------------------------------------
+
+    start_state = (start, start_direction, 0)
+
+    queue = []
+    heapq.heappush(queue, (0, start, start_direction, 0))
+
+    cost = {start_state: 0}
+    parent = {start_state: None}
+    parent_commands = {start_state: []}
+
+    goal_state = None
+
+    # =========================================================
+    # DIJKSTRA
+    # =========================================================
+
+    while queue:
+
+        current_cost, current_node, current_direction, current_streak = (
+            heapq.heappop(queue)
+        )
+
+        current_state = (current_node, current_direction, current_streak)
+
+        if current_cost != cost[current_state]:
+            continue
+
+        if current_node == goal:
+            goal_state = current_state
+            break
+
+        for neighbour in graph.get_neighbors(current_node):
+            current_row = current_node // cols
+            current_col = current_node % cols
+
+            next_row = neighbour // cols
+            next_col = neighbour % cols
+
+            movement = (next_row - current_row, next_col - current_col)
+
+            if movement == (-1, 0):
+                required_direction = "N"
+            elif movement == (0, 1):
+                required_direction = "E"
+            elif movement == (1, 0):
+                required_direction = "S"
+            elif movement == (0, -1):
+                required_direction = "W"
+            else:
+                raise ValueError(
+                    f"Invalid movement from {current_node} to {neighbour}"
+                )
+
+            current_index = directions.index(current_direction)
+            required_index = directions.index(required_direction)
+
+            turn = (required_index - current_index) % 4
+
+            if turn == 0:
+                turn_commands = []
+            elif turn == 1:
+                turn_commands = ["r"]
+            elif turn == 2:
+                turn_commands = ["r", "r"]
+            else:
+                turn_commands = ["l"]
+
+            movement_commands = turn_commands + ["f"]
+            movement_cost = len(movement_commands)
+            new_cost = current_cost + movement_cost
+
+            # -------------------------------------------------
+            # Update the "open straight-line" streak
+            # -------------------------------------------------
+
+            neighbour_node_obj = graph.nodes[neighbour]
+            neighbour_open = is_open_cell(neighbour_node_obj, required_direction)
+
+            if turn == 0:
+                # No turn: streak continues if this cell is also open.
+                new_streak = current_streak + 1 if neighbour_open else 0
+            else:
+                # Turned: fresh run starting at this cell.
+                new_streak = 1 if neighbour_open else 0
+
+            # Forbid 3+ consecutive open cells in a straight line.
+            if new_streak > max_open_streak:
+                continue
+
+            new_state = (neighbour, required_direction, new_streak)
+
+            if new_state not in cost or new_cost < cost[new_state]:
+                cost[new_state] = new_cost
+                parent[new_state] = current_state
+                parent_commands[new_state] = movement_commands
+
+                heapq.heappush(
+                    queue,
+                    (new_cost, neighbour, required_direction, new_streak)
+                )
+
+    # =========================================================
+    # NO PATH
+    # =========================================================
+
+    if goal_state is None:
+        return None, None
+
+    # =========================================================
+    # RECONSTRUCT PATH
+    # =========================================================
+
+    states = []
+    current_state = goal_state
+
+    while current_state is not None:
+        states.append(current_state)
+        current_state = parent[current_state]
+
+    states.reverse()
+
+    path = [state[0] for state in states]
+
+    commands = []
+    for state in states[1:]:
+        commands.extend(parent_commands[state])
+
+    return path, commands
+
 
 def path_to_commands(path, start_direction="N", cols=9):
     """
