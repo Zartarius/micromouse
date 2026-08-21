@@ -12,10 +12,7 @@ namespace mm {
 
 class Robot {
 public:
-    static Robot& get(void) {
-        static Robot instance;
-        return instance;
-    }
+    static Robot& get(void);
 
     Motor left_motor;
     Motor right_motor;
@@ -46,32 +43,7 @@ private:
     inline static constexpr uint8_t LIDARLEFT_ADD = 0x55;
     inline static constexpr uint8_t LIDARRIGHT_ADD = 0x56;
 
-    Robot(void) :
-        left_motor(MotorSide::LEFT, LEFT_MOTOR_PWM_PIN, LEFT_MOTOR_DIR_PIN, LEFT_MOTOR_ENC_A_PIN, LEFT_MOTOR_ENC_B_PIN),
-        right_motor(MotorSide::RIGHT, RIGHT_MOTOR_PWM_PIN, RIGHT_MOTOR_DIR_PIN, RIGHT_MOTOR_ENC_A_PIN, RIGHT_MOTOR_ENC_B_PIN),
-        gyroscope(),
-        rotation_controller(6.7f, 0.6f, 0.45f),
-        position_controller(35.0f, 0.0f, 5.0f, 5.0f),
-        // 55, 2, 15, 15 very accurate but slow
-        // 50.0f, 2.0f, 3.8f, 5.0f
-        heading_controller(15.0f, 0.0f, 0.5f),
-        wall_centering_controller(0.20f, 0.0f, 0.05f),
-        lidar_system((LidarSystem::Config) {.en_pin = LIDARFRONT_EN_PIN, .address = LIDARFRONT_ADD},
-                    (LidarSystem::Config) {.en_pin = LIDARLEFT_EN_PIN, .address = LIDARLEFT_ADD},
-                    (LidarSystem::Config) {.en_pin = LIDARRIGHT_EN_PIN, .address = LIDARRIGHT_ADD}),
-        oled(),
-        // wheel_radius_mm(15.85f),
-        // ~5% overshoot even at low speed pointed to a calibration/scale
-        // error rather than a tuning one (dynamic overshoot shrinks with
-        // speed; this didn't). actual/commanded distance scales with
-        // (true_radius/coded_radius), so overshoot means the true radius
-        // is bigger than what was coded - bumped 16.0 -> 16.8 (+5%) as a
-        // first pass. Refine by driving a precisely measured distance at
-        // low speed and rescaling: new = old * (actual_measured / commanded).
-        wheel_radius_mm(16.0f),
-        track_width_mm(87.4f)
-    {}
-
+    Robot(void);
     Robot(const Robot&) = delete;
     Robot& operator=(const Robot&) = delete;
 };
