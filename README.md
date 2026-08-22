@@ -49,11 +49,11 @@ Set `TASK_4_POINT` in `include/Task.hpp` before building to choose which task's 
 
 ## `computer_vision/`
 
-Offline Python/Jupyter tooling used alongside the firmware, kept separate from the embedded build:
+Offline Python tooling used alongside the firmware, kept separate from the embedded build (`pip install -r computer_vision/requirements.txt`):
 
-- `image_processing.py`, `hsv_picker.py`, `pick_points.py` — overhead-camera maze image processing (colour marker detection, perspective correction).
-- `graph.py`, `path_finder.py` — maze graph representation and shortest/optimal-command path search, used to precompute the hardcoded move sequences for Tasks 4.1/4.2.
-- `*.ipynb` — notebooks used to develop and visualise the above during the project.
+- `maze_vision.py` — overhead-camera maze image processing: colour-marker/manual corner detection, perspective correction, HSV wall thresholding, occupancy-map and obstacle-course helpers. Run directly (`python maze_vision.py`) to open an interactive HSV trackbar tool for re-tuning the wall threshold against `maze_images/eg.jpg`.
+- `path_planner.py` — maze graph representation (`Graph`/`Node`) and shortest/command-optimal path search, used to precompute the hardcoded move sequences for Tasks 4.1/4.2.
+- `maze_images/` — sample camera captures used to develop and test the above.
 
 ## Other directories
 
