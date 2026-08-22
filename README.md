@@ -1,4 +1,4 @@
-# micromouse
+# Micromouse
 
 Firmware and offline tooling for a micromouse robot, running on an Arduino Nano (ATmega328). The robot navigates a 9x9 maze using two encoded DC motors, an IMU, three time-of-flight distance sensors, and an OLED status display.
 
